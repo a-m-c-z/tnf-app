@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rating Results</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .comparison-section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .player-select {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 20px auto;
+            align-items: center;
+            justify-content: center;
+        }
+        .player-select > div {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .player-select label {
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+        .player-select select {
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            min-width: 180px;
+        }
+        .chart-container {
+            max-width: 600px;
+            height: 400px;
+            margin: 30px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #radarChart {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .compare-btn {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .compare-btn:hover {
+            background-color: #0056b3;
+        }
+        .clear-btn {
+            background-color: #6c757d;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 10px;
+        }
+        .clear-btn:hover {
+            background-color: #545b62;
+        }
+        .table-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .no-ratings {
+            color: #999;
+            font-style: italic;
+        }
+        .rating-high {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .rating-medium {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .rating-low {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .num-ratings {
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-link">← Back to all players</a>
+    
+    <h1>Average Player Ratings</h1>
+
+    <!-- Ratings Table -->
+    <h2 style="text-align: center; color: #333; margin-top: 40px;">Full Ratings Table</h2>
+    
+    <div class="table-container">
+        {% if averages %}
+        <table id="ratingsTable">
+            <thead>
+                <tr>
+                    <th onclick="sortTable(0)">Player</th>
+                    <th onclick="sortTable(1)">Def Work</th>
+                    <th onclick="sortTable(2)">Att Work</th>
+                    <th onclick="sortTable(3)">Fitness</th>
+                    <th onclick="sortTable(4)">Passing</th>
+                    <th onclick="sortTable(5)">Defending</th>
+                    <th onclick="sortTable(6)">Shooting</th>
+                    <th onclick="sortTable(7)">Physicality</th>
+                    <th onclick="sortTable(8)">Pace</th>
+                    <th onclick="sortTable(9)">GK</th>
+                    <th onclick="sortTable(10)">Ratings</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for avg in averages %}
+                <tr>
+                    <td><strong>{{ avg[0] }}</strong></td>
+                    {% for i in range(1, 10) %}
+                        <td>
+                            {% if avg[i] %}
+                                {% if avg[i] >= 7.5 %}
+                                    <span class="rating-high">{{ avg[i] }}</span>
+                                {% elif avg[i] >= 5.0 %}
+                                    <span class="rating-medium">{{ avg[i] }}</span>
+                                {% else %}
+                                    <span class="rating-low">{{ avg[i] }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="no-ratings">-</span>
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                    <td class="num-ratings">{{ avg[10] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="text-align: center; color: #666; padding: 40px;">
+            No ratings yet. Be the first to rate a player!
+        </p>
+        {% endif %}
+    </div>
+
+
+    <script>
+        // Player data from Flask
+        const playerData = [
+            {% for avg in averages %}
+            {% if avg[10] > 0 %}
+            {
+                name: "{{ avg[0] }}",
+                stats: [
+                    {{ avg[1] if avg[1] else 0 }},
+                    {{ avg[2] if avg[2] else 0 }},
+                    {{ avg[3] if avg[3] else 0 }},
+                    {{ avg[4] if avg[4] else 0 }},
+                    {{ avg[5] if avg[5] else 0 }},
+                    {{ avg[6] if avg[6] else 0 }},
+                    {{ avg[7] if avg[7] else 0 }},
+                    {{ avg[8] if avg[8] else 0 }},
+                    {{ avg[9] if avg[9] else 0 }}
+                ]
+            }{{ "," if not loop.last else "" }}
+            {% endif %}
+            {% endfor %}
+        ];
+
+        const labels = [
+            'Def Work',
+            'Att Work',
+            'Fitness',
+            'Passing',
+            'Defending',
+            'Shooting',
+            'Physicality',
+            'Pace',
+            'Goalkeeping'
+        ];
+
+        const colors = [
+            { border: 'rgb(255, 99, 132)', bg: 'rgba(255, 99, 132, 0.2)' },
+            { border: 'rgb(54, 162, 235)', bg: 'rgba(54, 162, 235, 0.2)' },
+            { border: 'rgb(75, 192, 192)', bg: 'rgba(75, 192, 192, 0.2)' }
+        ];
+
+        let chart = null;
+
+        function updateChart() {
+            const datasets = [];
+            
+            for (let i = 1; i <= 3; i++) {
+                const select = document.getElementById('player' + i);
+                const index = select.value;
+                
+                if (index !== '') {
+                    const player = playerData[parseInt(index)];
+                    datasets.push({
+                        label: player.name,
+                        data: player.stats,
+                        borderColor: colors[i-1].border,
+                        backgroundColor: colors[i-1].bg,
+                        borderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    });
+                }
+            }
+
+            if (datasets.length === 0) {
+                alert('Please select at least one player to compare');
+                return;
+            }
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 10,
+                            ticks: {
+                                stepSize: 2
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    }
+                }
+            });
+        }
+
+        function clearComparison() {
+            document.getElementById('player1').value = '';
+            document.getElementById('player2').value = '';
+            document.getElementById('player3').value = '';
+            
+            if (chart) {
+                chart.destroy();
+                chart = null;
+            }
+        }
+
+        // ---- Sorting Functionality ----
+        let sortDirections = {};
+
+        function sortTable(colIndex) {
+            const table = document.getElementById("ratingsTable");
+            const tbody = table.querySelector("tbody");
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+
+            // Toggle sort direction (ascending/descending)
+            sortDirections[colIndex] = !sortDirections[colIndex];
+            const ascending = sortDirections[colIndex];
+
+            rows.sort((a, b) => {
+                const aText = a.children[colIndex].innerText.trim();
+                const bText = b.children[colIndex].innerText.trim();
+
+                // Parse numbers if possible
+                const aVal = parseFloat(aText) || 0;
+                const bVal = parseFloat(bText) || 0;
+
+                if (!isNaN(aVal) && !isNaN(bVal)) {
+                    return ascending ? aVal - bVal : bVal - aVal;
+                } else {
+                    return ascending
+                        ? aText.localeCompare(bText)
+                        : bText.localeCompare(aText);
+                }
+            });
+
+            tbody.innerHTML = "";
+            rows.forEach(row => tbody.appendChild(row));
+        }
+    </script>
+
+    <!-- Player Comparison Tool -->
+    <div class="comparison-section">
+        <h2 style="margin-top: 0; color: #333;">Player Comparison</h2>
+        
+        <div class="player-select">
+            <div>
+                <label for="player1">Player 1:</label>
+                <select id="player1">
+                    <option value="">Select player...</option>
+                    {% for avg in averages %}
+                    {% if avg[10] > 0 %}
+                    <option value="{{ loop.index0 }}">{{ avg[0] }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <label for="player2">Player 2:</label>
+                <select id="player2">
+                    <option value="">Select player...</option>
+                    {% for avg in averages %}
+                    {% if avg[10] > 0 %}
+                    <option value="{{ loop.index0 }}">{{ avg[0] }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <label for="player3">Player 3:</label>
+                <select id="player3">
+                    <option value="">Select player...</option>
+                    {% for avg in averages %}
+                    {% if avg[10] > 0 %}
+                    <option value="{{ loop.index0 }}">{{ avg[0] }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <button class="compare-btn" onclick="updateChart()">Compare Players</button>
+        <button class="clear-btn" onclick="clearComparison()">Clear</button>
+        
+        <div class="chart-container">
+            <canvas id="radarChart"></canvas>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Player Ratings</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .nav {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .nav a {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 0 10px;
+        }
+        .nav a:hover {
+            background-color: #0056b3;
+        }
+        .player-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+        .player-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .player-card h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+        }
+        .player-card a {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .player-card a:hover {
+            background-color: #218838;
+        }
+        .already-rated {
+            background-color: #f0f0f0;
+            opacity: 0.7;
+        }
+        .already-rated a {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .already-rated a:hover {
+            background-color: #6c757d;
+        }
+        .rated-badge {
+            display: inline-block;
+            background-color: #ffc107;
+            color: #000;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 0.85em;
+            margin-top: 8px;
+        }
+        .header-image {
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            border-radius: 8px;
+            margin: 0 auto 30px auto;
+            display: block;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <img src="https://i.ytimg.com/vi/HkHAJTj_OMs/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDKhJ9o_hsO8AiP1DcwRR_OQq1xpQ" 
+         alt="Header Image" 
+         class="header-image">
+    
+    <h1>TNF Football</h1>
+    
+    <div class="nav">
+        <a href="/team_picker">Team Picker</a>
+        {% if show_results %}
+        <a href="/results">View Results</a>
+        {% endif %}
+    </div>
+
+    {% if ratings_count < min_required %}
+    <div class="progress-box">
+        <h3 style="margin-top: 0; color: #333;">Your Progress</h3>
+        <p style="color: #666;">Rate <strong>{{ min_required }}</strong> players to unlock results</p>
+        <div class="progress-bar-container">
+            <div class="progress-bar" style="width: {{ progress_percent }}%;">
+                {{ ratings_count }}/{{ min_required }}
+            </div>
+        </div>
+        <p style="color: #28a745; font-weight: bold; margin-bottom: 0;">
+            {% set remaining = min_required - ratings_count %}
+            {% if remaining == 1 %}
+                Just 1 more to go! 🎉
+            {% else %}
+                {{ remaining }} more to unlock results!
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+
+    <h2 style="text-align: center; color: #666;">Select a player to rate:</h2>
+
+    <div class="player-grid">
+        {% for player in players %}
+        <div class="player-card {% if player[0] in rated_players %}already-rated{% endif %}">
+            <h3>{{ player[1] }}</h3>
+            {% if player[0] in rated_players %}
+                <span class="rated-badge">✓ Already Rated</span>
+            {% else %}
+                <a href="/rate/{{ player[0] }}">Rate Player</a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+</body>
+</html>
