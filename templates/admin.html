@@ -443,7 +443,8 @@
         loss_streak_name='', loss_streak_val=0,
         most_motm_name='', most_motm_val=0,
         best_win_pct_name='', best_win_pct_val=0,
-        worst_loss_pct_name='', worst_loss_pct_val=0
+        worst_loss_pct_name='', worst_loss_pct_val=0,
+        lethal_p1='', lethal_p2='', lethal_win_pct=0, lethal_games=0
     ) %}
 
     {% for name, s in players_list %}
@@ -455,6 +456,12 @@
         {% if s.motm > ns.most_motm_val %}{% set ns.most_motm_val = s.motm %}{% set ns.most_motm_name = name %}{% endif %}
         {% if s.games >= 3 and s.win_pct > ns.best_win_pct_val %}{% set ns.best_win_pct_val = s.win_pct %}{% set ns.best_win_pct_name = name %}{% endif %}
         {% if s.games >= 3 and s.loss_pct > ns.worst_loss_pct_val %}{% set ns.worst_loss_pct_val = s.loss_pct %}{% set ns.worst_loss_pct_name = name %}{% endif %}
+        {% if s.best_partner and s.best_partner_win_pct > ns.lethal_win_pct %}
+            {% set ns.lethal_win_pct = s.best_partner_win_pct %}
+            {% set ns.lethal_p1 = name %}
+            {% set ns.lethal_p2 = s.best_partner %}
+            {% set ns.lethal_games = s.partnerships[s.best_partner].games if s.best_partner in s.partnerships else 0 %}
+        {% endif %}
     {% endfor %}
 
     <div class="stats-overview">
@@ -467,11 +474,6 @@
             <div class="label">Most Wins</div>
             <div class="value">{{ ns.most_wins_name }}</div>
             <div class="sub">{{ ns.most_wins_val }} wins</div>
-        </div>
-        <div class="stat-highlight">
-            <div class="label">Most Losses</div>
-            <div class="value">{{ ns.most_losses_name }}</div>
-            <div class="sub">{{ ns.most_losses_val }} losses</div>
         </div>
         <div class="stat-highlight">
             <div class="label">Longest Win Streak</div>
@@ -497,6 +499,16 @@
             <div class="label">Highest Loss % (min 3 games)</div>
             <div class="value">{{ ns.worst_loss_pct_name }}</div>
             <div class="sub">{{ ns.worst_loss_pct_val }}%</div>
+        </div>
+        <div class="stat-highlight" style="border-color: var(--colours); border-width: 2px;">
+            <div class="label">⚡ Most Lethal Partnership</div>
+            {% if ns.lethal_p1 %}
+            <div class="value" style="font-size:1.1rem; color: var(--colours);">{{ ns.lethal_p1 }} & {{ ns.lethal_p2 }}</div>
+            <div class="sub">{{ ns.lethal_win_pct }}% win rate together · {{ ns.lethal_games }} games</div>
+            {% else %}
+            <div class="value">—</div>
+            <div class="sub">Not enough data yet (min 3 games together)</div>
+            {% endif %}
         </div>
     </div>
 
