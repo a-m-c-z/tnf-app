@@ -19,7 +19,7 @@ PLAYERS = [
     'Alex', 'Gibbo', 'Paolo', 'Laff', 'Fenton', 'Jonny', 'Tom', 'Ed',
     'Scott', 'Kev', 'Adam', 'Ilya', 'Shaun', 'Luke', 'Kieran', 'Farrar',
     'Jon', 'Baker Jr', 'Paul D', 'Wysocki', 'Gareth', 'Harry Bass', 'Si',
-    'Dave', 'Evan', 'Ethan',
+    'Dave', 'Evan', 'Ethan', 'Guest 1', 'Guest 2', 'Guest 3', 'Guest 4'
 ]
 
 database.init_db()
@@ -284,11 +284,47 @@ def admin():
 @app.route('/admin/save_result', methods=['POST'])
 @admin_required
 def save_result():
-    gw_key         = request.form.get('gameweek_key')
-    result         = request.form.get('result')
-    goal_difference= request.form.get('goal_difference', '')
-    motm_player_id = request.form.get('motm_player_id') or None
+    gw_key          = request.form.get('gameweek_key')
+    result          = request.form.get('result')
+    goal_difference = request.form.get('goal_difference', '')
+    motm_player_id  = request.form.get('motm_player_id') or None
     database.save_gameweek_result(gw_key, result, goal_difference, motm_player_id)
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/delete_gameweek', methods=['POST'])
+@admin_required
+def delete_gameweek():
+    gw_key = request.form.get('gameweek_key')
+    database.delete_gameweek(gw_key)
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/add_gameweek', methods=['POST'])
+@admin_required
+def add_gameweek():
+    """Add a retrospective gameweek manually."""
+    gw_number   = request.form.get('gw_number', '').strip()
+    gw_year     = request.form.get('gw_year', '').strip()
+    bibs_raw    = request.form.get('bibs_players', '')
+    colours_raw = request.form.get('colours_players', '')
+
+    bibs_names    = [n.strip() for n in bibs_raw.split(',') if n.strip()]
+    colours_names = [n.strip() for n in colours_raw.split(',') if n.strip()]
+
+    error = None
+    if not gw_number or not gw_year:
+        error = 'Gameweek number and year are required.'
+    elif len(bibs_names) == 0 or len(colours_names) == 0:
+        error = 'Both teams must have at least one player.'
+    elif len(bibs_names) != len(colours_names):
+        error = f'Teams must be equal size ({len(bibs_names)} vs {len(colours_names)}).'
+
+    if error:
+        return redirect(url_for('admin') + f'?add_error={error}')
+
+    gw_key = f"{gw_number}-{gw_year}"
+    database.save_gameweek_teams_manual(gw_key, bibs_names, colours_names)
     return redirect(url_for('admin'))
 
 
@@ -348,12 +384,3 @@ def assign_positions(players):
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
-
-@app.route('/check-volume')
-def check_volume():
-    import os
-    data_dir = '/data'
-    if os.path.exists(data_dir):
-        files = os.listdir(data_dir)
-        return f"Files in /data: {files}"
-    return "/data directory does not exist ❌"

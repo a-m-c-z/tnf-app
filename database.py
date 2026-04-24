@@ -414,3 +414,52 @@ def get_season_stats(year=None):
             stats[name]['worst_partner_win_pct'] = 0
 
     return stats
+
+
+def delete_gameweek(gameweek_key):
+    """Delete a gameweek and its result entirely."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('DELETE FROM gameweek_results WHERE gameweek_key = ?', (gameweek_key,))
+    c.execute('DELETE FROM gameweek_teams WHERE gameweek_key = ?', (gameweek_key,))
+    conn.commit()
+    conn.close()
+
+
+def save_gameweek_teams_manual(gameweek_key, bibs_names, colours_names):
+    """
+    Save a retrospective gameweek given just player names.
+    Looks up ratings to compute averages; falls back to 5.0 if no ratings found.
+    """
+    import json
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    def avg_for(name):
+        c.execute('''SELECT AVG(defensive_workrate + attacking_workrate + fitness +
+                                passing_possession + defending_tackles + shooting +
+                                physicality + pace + goalkeeping) / 9.0
+                     FROM ratings r
+                     JOIN players p ON r.player_id = p.id
+                     WHERE p.name = ?''', (name,))
+        row = c.fetchone()
+        return round(row[0], 2) if row and row[0] else 5.0
+
+    bibs    = [{'name': n, 'avg_rating': avg_for(n), 'def_rating': 5.0, 'att_rating': 5.0} for n in bibs_names]
+    colours = [{'name': n, 'avg_rating': avg_for(n), 'def_rating': 5.0, 'att_rating': 5.0} for n in colours_names]
+
+    bibs_avg    = sum(p['avg_rating'] for p in bibs)    / len(bibs)    if bibs    else 5.0
+    colours_avg = sum(p['avg_rating'] for p in colours) / len(colours) if colours else 5.0
+
+    c.execute('''INSERT INTO gameweek_teams
+                     (gameweek_key, bibs_players, colours_players, bibs_avg, colours_avg, updated_at)
+                 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(gameweek_key) DO UPDATE SET
+                     bibs_players    = excluded.bibs_players,
+                     colours_players = excluded.colours_players,
+                     bibs_avg        = excluded.bibs_avg,
+                     colours_avg     = excluded.colours_avg,
+                     updated_at      = CURRENT_TIMESTAMP''',
+              (gameweek_key, json.dumps(bibs), json.dumps(colours), bibs_avg, colours_avg))
+    conn.commit()
+    conn.close()

@@ -149,6 +149,67 @@
         }
         .result-form button:hover { background: var(--green); }
 
+        .btn-delete {
+            padding: 6px 14px;
+            background: transparent;
+            color: var(--colours);
+            border: 1px solid var(--colours);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .2s, color .2s;
+        }
+        .btn-delete:hover { background: var(--colours); color: white; }
+
+        .retro-form {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 28px;
+        }
+        .retro-form .fields {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        .retro-form label { font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 4px; }
+        .retro-form input, .retro-form select {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 9px 12px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            outline: none;
+        }
+        .retro-form input:focus { border-color: var(--green-l); }
+        .retro-form input.wide { width: 260px; }
+        .retro-form input.narrow { width: 90px; }
+        .retro-form button {
+            padding: 9px 20px;
+            background: var(--green-l);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .retro-form button:hover { background: var(--green); }
+        .retro-hint { font-size: 0.75rem; color: var(--muted); margin-top: 10px; }
+        .add-error {
+            background: rgba(220,53,69,0.15);
+            border: 1px solid var(--colours);
+            color: #ff8a93;
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 14px;
+            font-size: 0.85rem;
+        }
+
         .motm-tag {
             display: inline-flex;
             align-items: center;
@@ -238,6 +299,41 @@
 
 <main>
 
+    <!-- ── Add Retrospective Gameweek ────────────────────── -->
+    <div class="section-title">Add Retrospective Gameweek</div>
+
+    {% set add_error = request.args.get('add_error') %}
+    {% if add_error %}
+    <div class="add-error">⚠️ {{ add_error }}</div>
+    {% endif %}
+
+    <div class="retro-form">
+        <form method="POST" action="/admin/add_gameweek">
+            <div class="fields">
+                <div>
+                    <label>GW Number</label>
+                    <input type="number" name="gw_number" class="narrow" placeholder="e.g. 14" min="1" max="60" required>
+                </div>
+                <div>
+                    <label>Year</label>
+                    <input type="number" name="gw_year" class="narrow" placeholder="{{ year }}" value="{{ year }}" required>
+                </div>
+                <div>
+                    <label>🟡 Bibs Players (comma-separated)</label>
+                    <input type="text" name="bibs_players" class="wide" placeholder="Alex, Gibbo, Paolo, Laff, Fenton">
+                </div>
+                <div>
+                    <label>🔴 Colours Players (comma-separated)</label>
+                    <input type="text" name="colours_players" class="wide" placeholder="Jonny, Tom, Ed, Scott, Kev">
+                </div>
+                <div>
+                    <button type="submit">Add Gameweek</button>
+                </div>
+            </div>
+            <p class="retro-hint">Names must match exactly as they appear in the player list. You can set the result and MOTM after adding.</p>
+        </form>
+    </div>
+
     <!-- ── Gameweeks ─────────────────────────────────────── -->
     <div class="section-title">Gameweeks</div>
 
@@ -247,14 +343,21 @@
         <div class="gw-card {% if gw.result %}has-result{% endif %}">
             <div class="gw-header">
                 <span class="gw-label">GW {{ gw.gameweek_key }}</span>
-                {% if gw.result %}
-                    <span class="result-badge {{ gw.result }}">
-                        {% if gw.result == 'bibs_win' %}🟡 Bibs Win
-                        {% elif gw.result == 'colours_win' %}🔴 Colours Win
-                        {% else %}— Draw{% endif %}
-                        {% if gw.goal_difference %}(+{{ gw.goal_difference }}){% endif %}
-                    </span>
-                {% endif %}
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    {% if gw.result %}
+                        <span class="result-badge {{ gw.result }}">
+                            {% if gw.result == 'bibs_win' %}🟡 Bibs Win
+                            {% elif gw.result == 'colours_win' %}🔴 Colours Win
+                            {% else %}— Draw{% endif %}
+                            {% if gw.goal_difference %}(+{{ gw.goal_difference }}){% endif %}
+                        </span>
+                    {% endif %}
+                    <form method="POST" action="/admin/delete_gameweek"
+                          onsubmit="return confirm('Delete GW {{ gw.gameweek_key }}? This cannot be undone.')">
+                        <input type="hidden" name="gameweek_key" value="{{ gw.gameweek_key }}">
+                        <button type="submit" class="btn-delete">🗑 Delete</button>
+                    </form>
+                </div>
             </div>
 
             <div class="teams-row">
