@@ -349,12 +349,11 @@ def assign_positions(players):
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
 
-@app.route('/migrate-db')
-def migrate_db():
-    import shutil, os
-    src = '/app/ratings.db'  # Railway puts your repo files here
-    dst = os.environ.get('DB_PATH', '/data/ratings.db')
-    if os.path.exists(src):
-        shutil.copy2(src, dst)
-        return f"Copied {src} to {dst} ✅"
-    return f"Source not found at {src} ❌"
+@app.route('/check-volume')
+def check_volume():
+    import os
+    data_dir = '/data'
+    if os.path.exists(data_dir):
+        files = os.listdir(data_dir)
+        return f"Files in /data: {files}"
+    return "/data directory does not exist ❌"
