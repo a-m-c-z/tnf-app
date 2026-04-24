@@ -317,8 +317,8 @@
         <!-- Confirm Teams form -->
         <form method="POST" action="/confirm_teams">
             <input type="hidden" name="gameweek_key" value="{{ gameweek_key }}">
-            <input type="hidden" name="bibs_json"    value="{{ teams.bibs | tojson }}">
-            <input type="hidden" name="colours_json" value="{{ teams.colours | tojson }}">
+            <input type="hidden" name="bibs_json"    value="{{ teams.bibs | tojson | forceescape }}">
+            <input type="hidden" name="colours_json" value="{{ teams.colours | tojson | forceescape }}">
             <input type="hidden" name="bibs_avg"     value="{{ teams.bibs_avg }}">
             <input type="hidden" name="colours_avg"  value="{{ teams.colours_avg }}">
             <button type="submit" class="btn btn-confirm">✅ Confirm Teams for GW {{ gameweek_key }}</button>
