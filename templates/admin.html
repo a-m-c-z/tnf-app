@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin — TNF</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --green:   #1a7a2e;
+            --green-l: #2d9e45;
+            --bibs:    #f5c518;
+            --colours: #dc3545;
+            --bg:      #0f1a12;
+            --card:    #1a2b1e;
+            --card2:   #1f3325;
+            --border:  #2a3d2e;
+            --text:    #e8f0e9;
+            --muted:   #7a9a7e;
+        }
+
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+
+        header {
+            background: linear-gradient(135deg, #0a1a0d, #1a3020);
+            border-bottom: 2px solid var(--green);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        header h1 { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: 3px; color: var(--bibs); }
+        header nav a {
+            color: var(--muted); text-decoration: none; font-size: 0.85rem;
+            margin-left: 18px; transition: color .2s;
+        }
+        header nav a:hover { color: var(--text); }
+        header nav a.logout { color: var(--colours); }
+
+        main { max-width: 1100px; margin: 0 auto; padding: 28px 20px 80px; }
+
+        .section-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            color: var(--green-l);
+            margin-bottom: 18px;
+            margin-top: 40px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+        }
+
+        /* ── Gameweeks ── */
+        .gw-grid { display: grid; gap: 16px; }
+
+        .gw-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+        }
+        .gw-card.has-result { border-left: 4px solid var(--green-l); }
+
+        .gw-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .gw-label {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            color: var(--bibs);
+        }
+
+        .result-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .result-badge.bibs_win   { background: rgba(245,197,24,0.2);  color: var(--bibs); }
+        .result-badge.colours_win { background: rgba(220,53,69,0.2); color: #ff8a93; }
+        .result-badge.draw        { background: rgba(122,154,126,0.2); color: var(--muted); }
+
+        .teams-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .team-col { font-size: 0.85rem; }
+        .team-col h4 {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .team-col.bibs  h4 { color: var(--bibs); }
+        .team-col.colours h4 { color: var(--colours); }
+        .team-col ul { list-style: none; }
+        .team-col li { padding: 3px 0; color: var(--muted); }
+        .team-col li span.pos {
+            display: inline-block;
+            width: 30px;
+            font-size: 0.7rem;
+            color: #4a6a4e;
+            font-weight: 600;
+        }
+
+        /* Result form */
+        .result-form {
+            background: var(--card2);
+            border-radius: 8px;
+            padding: 14px 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        .result-form label { font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 4px; }
+        .result-form select, .result-form input[type="number"] {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            outline: none;
+        }
+        .result-form select:focus, .result-form input:focus { border-color: var(--green-l); }
+        .result-form button {
+            padding: 8px 18px;
+            background: var(--green-l);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .result-form button:hover { background: var(--green); }
+
+        .motm-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(245,197,24,0.15);
+            border: 1px solid rgba(245,197,24,0.4);
+            color: var(--bibs);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        /* ── Stats ── */
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 14px;
+            margin-bottom: 30px;
+        }
+
+        .stat-highlight {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+        }
+        .stat-highlight .label {
+            font-size: 0.7rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+        .stat-highlight .value {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.6rem;
+            color: var(--bibs);
+            letter-spacing: 1px;
+            line-height: 1;
+        }
+        .stat-highlight .sub {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        /* Full stats table */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th {
+            background: var(--card2);
+            color: var(--muted);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        th:hover { color: var(--text); }
+        td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--muted); }
+        td:first-child { color: var(--text); font-weight: 600; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+        .pct-high { color: #4caf50; font-weight: 600; }
+        .pct-low  { color: var(--colours); font-weight: 600; }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>⚽ TNF Admin</h1>
+    <div style="color:var(--muted); font-size:0.85rem;">{{ year }} Season</div>
+    <nav>
+        <a href="/">Team Picker</a>
+        <a href="/admin/logout" class="logout">Logout</a>
+    </nav>
+</header>
+
+<main>
+
+    <!-- ── Gameweeks ─────────────────────────────────────── -->
+    <div class="section-title">Gameweeks</div>
+
+    {% if gameweeks %}
+    <div class="gw-grid">
+        {% for gw in gameweeks | reverse %}
+        <div class="gw-card {% if gw.result %}has-result{% endif %}">
+            <div class="gw-header">
+                <span class="gw-label">GW {{ gw.gameweek_key }}</span>
+                {% if gw.result %}
+                    <span class="result-badge {{ gw.result }}">
+                        {% if gw.result == 'bibs_win' %}🟡 Bibs Win
+                        {% elif gw.result == 'colours_win' %}🔴 Colours Win
+                        {% else %}— Draw{% endif %}
+                        {% if gw.goal_difference %}(+{{ gw.goal_difference }}){% endif %}
+                    </span>
+                {% endif %}
+            </div>
+
+            <div class="teams-row">
+                <div class="team-col bibs">
+                    <h4>🟡 Bibs</h4>
+                    <ul>
+                        {% for p in gw.bibs %}
+                        <li><span class="pos">{{ p.position if p.position else '' }}</span>{{ p.name }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="team-col colours">
+                    <h4>🔴 Colours</h4>
+                    <ul>
+                        {% for p in gw.colours %}
+                        <li><span class="pos">{{ p.position if p.position else '' }}</span>{{ p.name }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+
+            {% if gw.motm_name %}
+            <div class="motm-tag">⭐ MOTM: {{ gw.motm_name }}</div>
+            {% endif %}
+
+            <!-- Result form -->
+            <form method="POST" action="/admin/save_result" class="result-form" style="margin-top:14px;">
+                <input type="hidden" name="gameweek_key" value="{{ gw.gameweek_key }}">
+
+                <div>
+                    <label>Result</label>
+                    <select name="result">
+                        <option value="">— Select —</option>
+                        <option value="bibs_win"    {% if gw.result == 'bibs_win'    %}selected{% endif %}>🟡 Bibs Win</option>
+                        <option value="colours_win" {% if gw.result == 'colours_win' %}selected{% endif %}>🔴 Colours Win</option>
+                        <option value="draw"        {% if gw.result == 'draw'        %}selected{% endif %}>Draw</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Goal Diff (optional)</label>
+                    <input type="number" name="goal_difference" min="0" max="20"
+                           value="{{ gw.goal_difference if gw.goal_difference else '' }}"
+                           placeholder="e.g. 2" style="width:90px;">
+                </div>
+
+                <div>
+                    <label>Man of the Match</label>
+                    <select name="motm_player_id">
+                        <option value="">— None —</option>
+                        {% set all_players_in_gw = gw.bibs + gw.colours %}
+                        {% for p in all_players_in_gw | sort(attribute='name') %}
+                        {% for ap in all_players %}
+                        {% if ap[1] == p.name %}
+                        <option value="{{ ap[0] }}" {% if gw.motm_player_id == ap[0] %}selected{% endif %}>{{ p.name }}</option>
+                        {% endif %}
+                        {% endfor %}
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit">Save</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-data">No gameweeks recorded yet for {{ year }}. Confirm some teams from the Team Picker first.</div>
+    {% endif %}
+
+    <!-- ── Season Highlights ──────────────────────────────── -->
+    <div class="section-title">{{ year }} Season Highlights</div>
+
+    {% if stats %}
+    {% set players_list = stats.items() | list %}
+
+    {# Helper macros to find leaders #}
+    {% set ns = namespace(
+        most_games_name='', most_games_val=0,
+        most_wins_name='', most_wins_val=0,
+        most_losses_name='', most_losses_val=0,
+        win_streak_name='', win_streak_val=0,
+        loss_streak_name='', loss_streak_val=0,
+        most_motm_name='', most_motm_val=0,
+        best_win_pct_name='', best_win_pct_val=0,
+        worst_loss_pct_name='', worst_loss_pct_val=0
+    ) %}
+
+    {% for name, s in players_list %}
+        {% if s.games > ns.most_games_val %}{% set ns.most_games_val = s.games %}{% set ns.most_games_name = name %}{% endif %}
+        {% if s.wins > ns.most_wins_val %}{% set ns.most_wins_val = s.wins %}{% set ns.most_wins_name = name %}{% endif %}
+        {% if s.losses > ns.most_losses_val %}{% set ns.most_losses_val = s.losses %}{% set ns.most_losses_name = name %}{% endif %}
+        {% if s.win_streak > ns.win_streak_val %}{% set ns.win_streak_val = s.win_streak %}{% set ns.win_streak_name = name %}{% endif %}
+        {% if s.loss_streak > ns.loss_streak_val %}{% set ns.loss_streak_val = s.loss_streak %}{% set ns.loss_streak_name = name %}{% endif %}
+        {% if s.motm > ns.most_motm_val %}{% set ns.most_motm_val = s.motm %}{% set ns.most_motm_name = name %}{% endif %}
+        {% if s.games >= 3 and s.win_pct > ns.best_win_pct_val %}{% set ns.best_win_pct_val = s.win_pct %}{% set ns.best_win_pct_name = name %}{% endif %}
+        {% if s.games >= 3 and s.loss_pct > ns.worst_loss_pct_val %}{% set ns.worst_loss_pct_val = s.loss_pct %}{% set ns.worst_loss_pct_name = name %}{% endif %}
+    {% endfor %}
+
+    <div class="stats-overview">
+        <div class="stat-highlight">
+            <div class="label">Most Games Played</div>
+            <div class="value">{{ ns.most_games_name }}</div>
+            <div class="sub">{{ ns.most_games_val }} games</div>
+        </div>
+        <div class="stat-highlight">
+            <div class="label">Most Wins</div>
+            <div class="value">{{ ns.most_wins_name }}</div>
+            <div class="sub">{{ ns.most_wins_val }} wins</div>
+        </div>
+        <div class="stat-highlight">
+            <div class="label">Most Losses</div>
+            <div class="value">{{ ns.most_losses_name }}</div>
+            <div class="sub">{{ ns.most_losses_val }} losses</div>
+        </div>
+        <div class="stat-highlight">
+            <div class="label">Longest Win Streak</div>
+            <div class="value">{{ ns.win_streak_name }}</div>
+            <div class="sub">{{ ns.win_streak_val }} in a row</div>
+        </div>
+        <div class="stat-highlight">
+            <div class="label">Longest Losing Streak</div>
+            <div class="value">{{ ns.loss_streak_name }}</div>
+            <div class="sub">{{ ns.loss_streak_val }} in a row</div>
+        </div>
+        <div class="stat-highlight">
+            <div class="label">Most Man of the Match</div>
+            <div class="value">{{ ns.most_motm_name if ns.most_motm_name else '—' }}</div>
+            <div class="sub">{{ ns.most_motm_val }} awards</div>
+        </div>
+        <div class="stat-highlight">
+            <div class="label">Highest Win % (min 3 games)</div>
+            <div class="value">{{ ns.best_win_pct_name }}</div>
+            <div class="sub">{{ ns.best_win_pct_val }}%</div>
+        </div>
+        <div class="stat-highlight">
+            <div class="label">Highest Loss % (min 3 games)</div>
+            <div class="value">{{ ns.worst_loss_pct_name }}</div>
+            <div class="sub">{{ ns.worst_loss_pct_val }}%</div>
+        </div>
+    </div>
+
+    <!-- Full table -->
+    <div class="section-title">Full Player Stats</div>
+    <div class="table-wrap">
+        <table id="statsTable">
+            <thead>
+                <tr>
+                    <th onclick="sortTable(0)">Player</th>
+                    <th onclick="sortTable(1)">Games</th>
+                    <th onclick="sortTable(2)">W</th>
+                    <th onclick="sortTable(3)">D</th>
+                    <th onclick="sortTable(4)">L</th>
+                    <th onclick="sortTable(5)">Win %</th>
+                    <th onclick="sortTable(6)">Loss %</th>
+                    <th onclick="sortTable(7)">Win Streak</th>
+                    <th onclick="sortTable(8)">Loss Streak</th>
+                    <th onclick="sortTable(9)">MOTM</th>
+                    <th>Best Partner</th>
+                    <th>Worst Partner</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for name, s in players_list | sort(attribute='1.games', reverse=True) %}
+                {% if s.games > 0 %}
+                <tr>
+                    <td>{{ name }}</td>
+                    <td>{{ s.games }}</td>
+                    <td>{{ s.wins }}</td>
+                    <td>{{ s.draws }}</td>
+                    <td>{{ s.losses }}</td>
+                    <td class="{% if s.win_pct >= 60 %}pct-high{% elif s.win_pct <= 35 %}pct-low{% endif %}">
+                        {{ s.win_pct }}%
+                    </td>
+                    <td class="{% if s.loss_pct >= 60 %}pct-low{% elif s.loss_pct <= 35 %}pct-high{% endif %}">
+                        {{ s.loss_pct }}%
+                    </td>
+                    <td>{{ s.win_streak }}</td>
+                    <td>{{ s.loss_streak }}</td>
+                    <td>{{ s.motm }}</td>
+                    <td>
+                        {% if s.best_partner %}
+                        {{ s.best_partner }} <span style="color:var(--muted);font-size:0.75rem;">({{ s.best_partner_win_pct }}%)</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if s.worst_partner %}
+                        {{ s.worst_partner }} <span style="color:var(--muted);font-size:0.75rem;">({{ s.worst_partner_win_pct }}%)</span>
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+    <div class="no-data">No results recorded yet — save some gameweek results above to see stats.</div>
+    {% endif %}
+
+</main>
+
+<script>
+    let sortDirs = {};
+    function sortTable(col) {
+        const table = document.getElementById('statsTable');
+        const tbody = table.querySelector('tbody');
+        const rows  = Array.from(tbody.querySelectorAll('tr'));
+        sortDirs[col] = !sortDirs[col];
+        rows.sort((a, b) => {
+            const aT = a.children[col]?.innerText.trim() || '';
+            const bT = b.children[col]?.innerText.trim() || '';
+            const aV = parseFloat(aT);
+            const bV = parseFloat(bT);
+            if (!isNaN(aV) && !isNaN(bV)) return sortDirs[col] ? aV - bV : bV - aV;
+            return sortDirs[col] ? aT.localeCompare(bT) : bT.localeCompare(aT);
+        });
+        tbody.innerHTML = '';
+        rows.forEach(r => tbody.appendChild(r));
+    }
+</script>
+</body>
+</html>
