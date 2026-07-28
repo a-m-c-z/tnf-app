@@ -484,13 +484,20 @@ def get_season_stats(year=None):
     for name in stats:
         partners = stats[name]['partnerships']
         eligible = {p: v for p, v in partners.items() if v['games'] >= 3}
-        if eligible:
+        if len(eligible) >= 2:
             best = max(eligible, key=lambda p: eligible[p]['wins'] / eligible[p]['games'])
             worst = min(eligible, key=lambda p: eligible[p]['wins'] / eligible[p]['games'])
             stats[name]['best_partner'] = best
             stats[name]['best_partner_win_pct'] = round(eligible[best]['wins'] / eligible[best]['games'] * 100, 1)
             stats[name]['worst_partner'] = worst
             stats[name]['worst_partner_win_pct'] = round(eligible[worst]['wins'] / eligible[worst]['games'] * 100, 1)
+        elif len(eligible) == 1:
+            # Only one regular partner - there's no distinct "worst" to compare against.
+            only = next(iter(eligible))
+            stats[name]['best_partner'] = only
+            stats[name]['best_partner_win_pct'] = round(eligible[only]['wins'] / eligible[only]['games'] * 100, 1)
+            stats[name]['worst_partner'] = None
+            stats[name]['worst_partner_win_pct'] = 0
         else:
             stats[name]['best_partner'] = None
             stats[name]['worst_partner'] = None

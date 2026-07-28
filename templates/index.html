@@ -164,6 +164,12 @@
     </header>
 
     <main>
+        {% if locked %}
+        <div class="progress-box">
+            <h3>🔒 Ratings Locked</h3>
+            <p>Sorry, you are unable to rate players at the moment.</p>
+        </div>
+        {% else %}
         {% if ratings_count < min_required %}
         <div class="progress-box">
             <h3>Your Progress</h3>
@@ -198,6 +204,7 @@
             </div>
             {% endfor %}
         </div>
+        {% endif %}
     </main>
 </body>
 </html>

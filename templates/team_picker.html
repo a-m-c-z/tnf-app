@@ -394,13 +394,13 @@
 
         {% if config.DEBUG and streak_debug %}
         <div class="debug-panel">
-            <p class="section-title">🐞 Streak Adjustment Debug (DEBUG=True only)</p>
+            <p class="section-title">🐞 Form Adjustment Debug (DEBUG=True only)</p>
             <table class="debug-table">
                 <thead>
                     <tr>
                         <th>Player</th>
-                        <th>Win streak</th>
-                        <th>Loss streak</th>
+                        <th>Wins (last 5)</th>
+                        <th>Losses (last 5)</th>
                         <th>Adjustment</th>
                         <th>Base DEF → Adj DEF</th>
                         <th>Base ATT → Adj ATT</th>
@@ -410,8 +410,8 @@
                     {% for d in streak_debug %}
                     <tr>
                         <td>{{ d.name }}</td>
-                        <td>{{ d.win_streak }}</td>
-                        <td>{{ d.loss_streak }}</td>
+                        <td>{{ d.wins }}</td>
+                        <td>{{ d.losses }}</td>
                         <td>{{ "%+.0f%%"|format(d.streak_pct * 100) }}</td>
                         <td>{{ "%.2f"|format(d.base_defender) }} → {{ "%.2f"|format(d.adjusted_defender) }}</td>
                         <td>{{ "%.2f"|format(d.base_attacker) }} → {{ "%.2f"|format(d.adjusted_attacker) }}</td>

@@ -14,6 +14,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-me')
 SHOW_RESULTS   = True
 MIN_RATINGS_TO_VIEW = 0
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
+RATINGS_LOCKED = True  # flip to False to re-open the rate page to players
 
 PLAYERS = [
     'Alex', 'Gibbo', 'Paolo', 'Laff', 'Fenton', 'Jonny', 'Tom', 'Ed',
@@ -74,12 +75,16 @@ def index():
 
 @app.route('/rate')
 def rate_index():
+    if RATINGS_LOCKED:
+        return render_template('index.html', locked=True, players=[], rated_players=[],
+                               show_results=False, ratings_count=0,
+                               min_required=MIN_RATINGS_TO_VIEW, progress_percent=0)
     players = [p for p in database.get_players() if p[1] not in database.GUEST_NAMES]
     random.shuffle(players)
     rated_players = json.loads(request.cookies.get('rated_players', '[]'))
     can_view_results = SHOW_RESULTS and len(rated_players) >= MIN_RATINGS_TO_VIEW
     progress_percent = int((len(rated_players) / MIN_RATINGS_TO_VIEW * 100)) if MIN_RATINGS_TO_VIEW > 0 else 100
-    return render_template('index.html', players=players, rated_players=rated_players,
+    return render_template('index.html', locked=False, players=players, rated_players=rated_players,
                            show_results=can_view_results,
                            ratings_count=len(rated_players),
                            min_required=MIN_RATINGS_TO_VIEW,
@@ -88,6 +93,8 @@ def rate_index():
 
 @app.route('/rate/<int:player_id>')
 def rate_player(player_id):
+    if RATINGS_LOCKED:
+        return redirect(url_for('rate_index'))
     player = database.get_player_by_id(player_id)
     if not player:
         return redirect(url_for('rate_index'))
@@ -98,6 +105,8 @@ def rate_player(player_id):
 
 @app.route('/submit_rating/<int:player_id>', methods=['POST'])
 def submit_rating(player_id):
+    if RATINGS_LOCKED:
+        return "Sorry, you are unable to rate players at the moment.", 403
     rated_players = json.loads(request.cookies.get('rated_players', '[]'))
     if player_id in rated_players:
         return "You have already rated this player!", 400
@@ -210,25 +219,26 @@ def generate_teams():
         base_defender_rating = defender_rating
         base_attacker_rating = attacker_rating
 
-        # Factor in recent hot/cold streaks: a player on a 3+ game win streak
-        # gets their rating inflated (10%/15%/20% for a 3/4/5-game streak),
-        # and a player on a 3+ game losing streak gets the same deflation.
+        # Factor in recent form: a player who has won 3+ of their last 5 games
+        # gets their rating inflated (10%/15%/20% for 3/4/5 wins out of 5),
+        # and a player who has lost 3+ of their last 5 games gets the same
+        # deflation. Based on proportion of results, not a consecutive streak.
         form_summary = database.get_player_form_summary(player[1], limit=5)
         form_by_name[player[1]] = form_summary
-        streak_pct = 0.0
-        if form_summary['win_streak'] >= 3:
-            streak_pct = streak_multiplier(form_summary['win_streak'])
-        elif form_summary['loss_streak'] >= 3:
-            streak_pct = -streak_multiplier(form_summary['loss_streak'])
-        if streak_pct:
-            defender_rating *= (1 + streak_pct)
-            attacker_rating *= (1 + streak_pct)
+        form_pct = 0.0
+        if form_summary['wins'] >= 3:
+            form_pct = form_multiplier(form_summary['wins'])
+        elif form_summary['losses'] >= 3:
+            form_pct = -form_multiplier(form_summary['losses'])
+        if form_pct:
+            defender_rating *= (1 + form_pct)
+            attacker_rating *= (1 + form_pct)
 
         streak_debug.append({
             'name': player[1],
-            'win_streak': form_summary['win_streak'],
-            'loss_streak': form_summary['loss_streak'],
-            'streak_pct': streak_pct,
+            'wins': form_summary['wins'],
+            'losses': form_summary['losses'],
+            'streak_pct': form_pct,
             'base_defender': base_defender_rating,
             'base_attacker': base_attacker_rating,
             'adjusted_defender': defender_rating,
@@ -371,13 +381,13 @@ def add_gameweek():
 
 # ── ILP helpers ───────────────────────────────────────────────────────────────
 
-def streak_multiplier(streak_length):
-    """Rating adjustment magnitude for a 3+ game hot/cold streak."""
-    if streak_length >= 5:
+def form_multiplier(count):
+    """Rating adjustment magnitude for winning/losing 3+ of the last 5 games."""
+    if count >= 5:
         return 0.20
-    if streak_length == 4:
+    if count == 4:
         return 0.15
-    return 0.10  # streak_length == 3
+    return 0.10  # count == 3
 
 
 def balance_teams_ilp(players):
@@ -433,4 +443,4 @@ def assign_positions(players):
 
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)
