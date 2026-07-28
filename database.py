@@ -70,6 +70,15 @@ def add_players_from_list(player_names):
     conn.close()
 
 
+def reset_ratings():
+    """Delete all submitted ratings. Players, gameweeks and results are untouched."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM ratings")
+    conn.commit()
+    conn.close()
+
+
 def get_players():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()

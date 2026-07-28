@@ -229,6 +229,58 @@
             padding: 40px;
             color: var(--muted);
         }
+
+        .restore-ok {
+            background: rgba(45,158,69,0.15);
+            border: 1px solid var(--green-l);
+            color: var(--green-l);
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 14px;
+            font-size: 0.85rem;
+        }
+
+        .data-mgmt-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+        }
+        .data-mgmt-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .data-mgmt-card h4 { font-size: 1rem; }
+        .data-mgmt-card p { font-size: 0.8rem; color: var(--muted); flex-grow: 1; }
+        .data-mgmt-card input[type="file"] {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+        .btn-action {
+            display: inline-block;
+            text-align: center;
+            padding: 9px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .btn-backup  { background: var(--green-l); color: white; }
+        .btn-backup:hover  { background: var(--green); }
+        .btn-restore { background: var(--bibs); color: #241d02; }
+        .btn-restore:hover { filter: brightness(0.9); }
+        .btn-reset   { background: transparent; color: var(--colours); border: 1px solid var(--colours); }
+        .btn-reset:hover   { background: var(--colours); color: white; }
     </style>
 </head>
 <body>
@@ -374,6 +426,44 @@
     {% else %}
     <div class="no-data">No gameweeks recorded yet for {{ year }}. Confirm some teams from the Team Picker first.</div>
     {% endif %}
+
+    <!-- ── Data Management ───────────────────────────────── -->
+    <div class="section-title">Data Management</div>
+
+    {% set restore_error = request.args.get('restore_error') %}
+    {% if restore_error %}
+    <div class="add-error">⚠️ {{ restore_error }}</div>
+    {% endif %}
+    {% if request.args.get('restore_ok') %}
+    <div class="restore-ok">✅ Database restored from backup.</div>
+    {% endif %}
+
+    <div class="data-mgmt-grid">
+        <div class="data-mgmt-card">
+            <h4>💾 Backup Data</h4>
+            <p>Download the full database (players, ratings, gameweeks, results) as a .db file.</p>
+            <a href="/admin/backup" class="btn-action btn-backup">Download Backup</a>
+        </div>
+
+        <div class="data-mgmt-card">
+            <h4>🔄 Restore From Backup</h4>
+            <p>Upload a previously downloaded .db backup to replace the current database. A safety copy of the current database is kept automatically.</p>
+            <form method="POST" action="/admin/restore_backup" enctype="multipart/form-data"
+                  onsubmit="return confirm('This will REPLACE the entire current database with the uploaded file. Continue?')">
+                <input type="file" name="backup_file" accept=".db" required>
+                <button type="submit" class="btn-action btn-restore">Restore</button>
+            </form>
+        </div>
+
+        <div class="data-mgmt-card">
+            <h4>🗑️ Reset Player Ratings</h4>
+            <p>Permanently delete all submitted player ratings. Players, gameweeks and results are kept.</p>
+            <form method="POST" action="/admin/reset_ratings"
+                  onsubmit="return confirm('This will permanently delete ALL player ratings. This cannot be undone. Continue?')">
+                <button type="submit" class="btn-action btn-reset">Reset Ratings</button>
+            </form>
+        </div>
+    </div>
 
 </main>
 </body>

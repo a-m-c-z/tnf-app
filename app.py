@@ -1,9 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, make_response, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, make_response, session, jsonify, send_file
 import database
 import random
 import json
 import os
-from datetime import date, timedelta
+import shutil
+from datetime import date, datetime, timedelta
 from functools import wraps
 from pulp import LpMinimize, LpProblem, LpVariable, lpSum, LpBinary, value
 
@@ -318,7 +319,6 @@ def admin_logout():
 @app.route('/admin')
 @admin_required
 def admin():
-    from datetime import datetime
     year = int(request.args.get('year', datetime.now().year))
     gameweeks = database.get_all_gameweeks()
     # filter to this year
@@ -376,6 +376,49 @@ def add_gameweek():
 
     gw_key = f"{gw_number}-{gw_year}"
     database.save_gameweek_teams_manual(gw_key, bibs_names, colours_names)
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/backup')
+@admin_required
+def admin_backup():
+    """Download the current SQLite database file as a timestamped backup."""
+    if not os.path.exists(database.DB_PATH):
+        return redirect(url_for('admin', restore_error='No database file found to back up.'))
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    return send_file(database.DB_PATH, as_attachment=True,
+                      download_name=f'ratings_backup_{timestamp}.db')
+
+
+@app.route('/admin/restore_backup', methods=['POST'])
+@admin_required
+def admin_restore_backup():
+    """Restore the database from an uploaded .db backup file."""
+    upload = request.files.get('backup_file')
+    if not upload or not upload.filename:
+        return redirect(url_for('admin', restore_error='No file selected.'))
+
+    data = upload.read()
+    if not data.startswith(b'SQLite format 3\x00'):
+        return redirect(url_for('admin', restore_error='That file is not a valid SQLite database.'))
+
+    # Safety net: keep a copy of the current database before overwriting it.
+    if os.path.exists(database.DB_PATH):
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        shutil.copy(database.DB_PATH, f'{database.DB_PATH}.pre_restore_{timestamp}.bak')
+
+    with open(database.DB_PATH, 'wb') as f:
+        f.write(data)
+
+    database.init_db()
+    return redirect(url_for('admin', restore_ok=1))
+
+
+@app.route('/admin/reset_ratings', methods=['POST'])
+@admin_required
+def admin_reset_ratings():
+    """Permanently delete all submitted player ratings (players/gameweeks untouched)."""
+    database.reset_ratings()
     return redirect(url_for('admin'))
 
 
