@@ -637,6 +637,42 @@ AI_PROMPT_RULES = (
     "full capitals like \"BIBS\")."
 )
 
+_CANNED_WC2026_COMPARISONS = [
+    ("Kylian Mbappé", "electric pace and always looking to run in behind"),
+    ("Virgil van Dijk", "commanding in the air and rarely loses a duel"),
+    ("Jude Bellingham", "box-to-box energy and always in the right spot"),
+    ("Bukayo Saka", "tricky on the ball and loves cutting inside"),
+    ("Rodri", "quietly dictates the tempo from deep"),
+    ("Achraf Hakimi", "relentless bombing up and down the flank"),
+    ("Erling Haaland", "a poacher who just needs half a chance"),
+    ("Pedri", "silky on the ball and never gives it away"),
+    ("Alisson", "calm under pressure and commands his box"),
+    ("Declan Rice", "breaks up play before it even starts"),
+    ("Vinícius Júnior", "unplayable in one-on-one situations"),
+    ("Marquinhos", "reads the game a yard ahead of everyone else"),
+]
+
+
+def build_canned_player_comparison(bibs, colours):
+    """Deterministic, offline stand-in for the Gemini player-comparison response.
+
+    Used in local dev (when GEMINI_API_KEY isn't set) so we can test the UI and the
+    share/screenshot flow without burning real API calls.
+    """
+    pool = _CANNED_WC2026_COMPARISONS
+    lines = []
+    for team_name, squad in (('Bibs', bibs), ('Colours', colours)):
+        lines.append(f'### {team_name}')
+        lines.append('')
+        for i, p in enumerate(squad):
+            idx = (sum(ord(c) for c in p.get('name', '')) + i) % len(pool)
+            footballer, blurb = pool[idx]
+            lines.append(f"- **{p.get('name', '?')}** — like *{footballer}*: {blurb}.")
+        lines.append('')
+    lines.append('_(Canned local-dev response — no Gemini API call made.)_')
+    return '\n'.join(lines)
+
+
 AI_PROMPT_PRESETS = {
     'match_report': (
         "You are a witty local football journalist. Write a match report for tonight's 5-a-side "
@@ -677,6 +713,13 @@ def generate_ai_content():
 
     prompt_type = request.form.get('prompt_type', 'custom')
     custom_prompt = (request.form.get('custom_prompt') or '').strip()
+
+    # Local dev fallback: if no Gemini API key is configured, skip the real API
+    # call for the player-comparison preset and return a canned response instead,
+    # so we can test the UI/sharing flow without burning real API quota.
+    if prompt_type == 'player_comparison' and not GEMINI_API_KEY:
+        return jsonify({'result': build_canned_player_comparison(bibs, colours)})
+
     summary = build_team_summary(bibs, colours, player_forms)
 
     if prompt_type == 'custom':
