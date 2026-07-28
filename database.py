@@ -4,6 +4,11 @@ import os
 
 DB_PATH = os.environ.get('DB_PATH', 'ratings.db')
 
+# Reserved fill-in players - always treated as a flat 6/10 across every
+# attribute instead of being rated by users.
+GUEST_NAMES = {'Guest 1', 'Guest 2', 'Guest 3', 'Guest 4'}
+GUEST_FIXED_RATING = 6.0
+
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -49,6 +54,11 @@ def init_db():
                   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                   FOREIGN KEY (motm_player_id) REFERENCES players(id))''')
 
+    # Simple key/value store for admin-editable settings (ratings lock, etc.)
+    c.execute('''CREATE TABLE IF NOT EXISTS settings
+                 (key TEXT PRIMARY KEY,
+                  value TEXT)''')
+
     conn.commit()
     conn.close()
 
@@ -61,6 +71,35 @@ def add_players_from_list(player_names):
             c.execute("INSERT INTO players (name) VALUES (?)", (name,))
         except sqlite3.IntegrityError:
             pass
+    conn.commit()
+    conn.close()
+
+
+def reset_ratings():
+    """Delete all submitted ratings. Players, gameweeks and results are untouched."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM ratings")
+    conn.commit()
+    conn.close()
+
+
+def get_setting(key, default=None):
+    """Return the stored string value for an admin setting, or `default` if unset."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT value FROM settings WHERE key = ?", (key,))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row is not None else default
+
+
+def set_setting(key, value):
+    """Create or update an admin setting (value is stored as text)."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''INSERT INTO settings (key, value) VALUES (?, ?)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value''', (key, str(value)))
     conn.commit()
     conn.close()
 
@@ -125,6 +164,10 @@ def get_average_ratings():
                  ORDER BY p.name''')
     results = c.fetchall()
     conn.close()
+    results = [
+        (row[0], *([GUEST_FIXED_RATING] * 9), 1) if row[0] in GUEST_NAMES else row
+        for row in results
+    ]
     return results
 
 
@@ -157,6 +200,9 @@ def get_average_ratings_filtered(filter_outliers=True):
     players = c.fetchall()
     results = []
     for player_id, player_name in players:
+        if player_name in GUEST_NAMES:
+            results.append((player_name, *([GUEST_FIXED_RATING] * 9), 1))
+            continue
         c.execute('''SELECT defensive_workrate, attacking_workrate,
                             fitness, passing_possession, defending_tackles,
                             shooting, physicality, pace, goalkeeping
@@ -188,6 +234,78 @@ def get_player_ratings(player_id):
     results = c.fetchall()
     conn.close()
     return results
+
+
+def _parse_gw_key(gameweek_key):
+    """'14-2026' -> (2026, 14), used for correct chronological sorting."""
+    gw_number, year = gameweek_key.split('-')
+    return (int(year), int(gw_number))
+
+
+def get_player_form(player_name, limit=5):
+    """
+    Return a player's most recent completed games (across all seasons),
+    oldest first, as a list of {'gameweek_key', 'result': 'W'/'D'/'L'}.
+    """
+    import json
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''SELECT gt.gameweek_key, gt.bibs_players, gt.colours_players, gr.result
+                 FROM gameweek_teams gt
+                 JOIN gameweek_results gr ON gt.gameweek_key = gr.gameweek_key
+                 WHERE gr.result IS NOT NULL''')
+    rows = c.fetchall()
+    conn.close()
+
+    games = []
+    for gw_key, bibs_json, colours_json, result in rows:
+        bibs_names = [p['name'] for p in json.loads(bibs_json)]
+        colours_names = [p['name'] for p in json.loads(colours_json)]
+        if player_name in bibs_names:
+            outcome = 'W' if result == 'bibs_win' else ('D' if result == 'draw' else 'L')
+        elif player_name in colours_names:
+            outcome = 'W' if result == 'colours_win' else ('D' if result == 'draw' else 'L')
+        else:
+            continue
+        games.append((_parse_gw_key(gw_key), gw_key, outcome))
+
+    games.sort(key=lambda g: g[0])
+    recent = games[-limit:]
+    return [{'gameweek_key': gw_key, 'result': outcome} for _, gw_key, outcome in recent]
+
+
+def get_player_form_summary(player_name, limit=5):
+    """Return the recent-form list plus a W/D/L breakdown, win %, and current win streak."""
+    form = get_player_form(player_name, limit)
+    wins   = sum(1 for g in form if g['result'] == 'W')
+    draws  = sum(1 for g in form if g['result'] == 'D')
+    losses = sum(1 for g in form if g['result'] == 'L')
+    games  = len(form)
+
+    win_streak = 0
+    for g in reversed(form):
+        if g['result'] == 'W':
+            win_streak += 1
+        else:
+            break
+
+    loss_streak = 0
+    for g in reversed(form):
+        if g['result'] == 'L':
+            loss_streak += 1
+        else:
+            break
+
+    return {
+        'form': form,
+        'games': games,
+        'wins': wins,
+        'draws': draws,
+        'losses': losses,
+        'win_pct': round(wins / games * 100, 1) if games else None,
+        'win_streak': win_streak,
+        'loss_streak': loss_streak,
+    }
 
 
 # ── Gameweek helpers ──────────────────────────────────────────────────────────
@@ -400,13 +518,20 @@ def get_season_stats(year=None):
     for name in stats:
         partners = stats[name]['partnerships']
         eligible = {p: v for p, v in partners.items() if v['games'] >= 3}
-        if eligible:
+        if len(eligible) >= 2:
             best = max(eligible, key=lambda p: eligible[p]['wins'] / eligible[p]['games'])
             worst = min(eligible, key=lambda p: eligible[p]['wins'] / eligible[p]['games'])
             stats[name]['best_partner'] = best
             stats[name]['best_partner_win_pct'] = round(eligible[best]['wins'] / eligible[best]['games'] * 100, 1)
             stats[name]['worst_partner'] = worst
             stats[name]['worst_partner_win_pct'] = round(eligible[worst]['wins'] / eligible[worst]['games'] * 100, 1)
+        elif len(eligible) == 1:
+            # Only one regular partner - there's no distinct "worst" to compare against.
+            only = next(iter(eligible))
+            stats[name]['best_partner'] = only
+            stats[name]['best_partner_win_pct'] = round(eligible[only]['wins'] / eligible[only]['games'] * 100, 1)
+            stats[name]['worst_partner'] = None
+            stats[name]['worst_partner_win_pct'] = 0
         else:
             stats[name]['best_partner'] = None
             stats[name]['worst_partner'] = None

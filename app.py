@@ -1,9 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, make_response, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, make_response, session, jsonify, send_file
 import database
 import random
 import json
 import os
-from datetime import date, timedelta
+import shutil
+from datetime import date, datetime, timedelta
 from functools import wraps
 from pulp import LpMinimize, LpProblem, LpVariable, lpSum, LpBinary, value
 
@@ -11,9 +12,22 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-me')
 
 # ── Config ────────────────────────────────────────────────────────────────────
-SHOW_RESULTS   = True
-MIN_RATINGS_TO_VIEW = 0
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
+
+# Ratings-lock / results-visibility settings are stored in the database so
+# they can be changed live from the admin page without a code deploy/restart.
+
+def get_ratings_locked():
+    return database.get_setting('ratings_locked', '1') == '1'
+
+
+def get_show_results():
+    return database.get_setting('show_results', '1') == '1'
+
+
+def get_min_ratings_to_view():
+    return int(database.get_setting('min_ratings_to_view', '0'))
+
 
 PLAYERS = [
     'Alex', 'Gibbo', 'Paolo', 'Laff', 'Fenton', 'Jonny', 'Tom', 'Ed',
@@ -74,20 +88,27 @@ def index():
 
 @app.route('/rate')
 def rate_index():
-    players = database.get_players()
+    if get_ratings_locked():
+        return render_template('index.html', locked=True, players=[], rated_players=[],
+                               show_results=False, ratings_count=0,
+                               min_required=get_min_ratings_to_view(), progress_percent=0)
+    players = [p for p in database.get_players() if p[1] not in database.GUEST_NAMES]
     random.shuffle(players)
     rated_players = json.loads(request.cookies.get('rated_players', '[]'))
-    can_view_results = SHOW_RESULTS and len(rated_players) >= MIN_RATINGS_TO_VIEW
-    progress_percent = int((len(rated_players) / MIN_RATINGS_TO_VIEW * 100)) if MIN_RATINGS_TO_VIEW > 0 else 100
-    return render_template('index.html', players=players, rated_players=rated_players,
+    min_required = get_min_ratings_to_view()
+    can_view_results = get_show_results() and len(rated_players) >= min_required
+    progress_percent = int((len(rated_players) / min_required * 100)) if min_required > 0 else 100
+    return render_template('index.html', locked=False, players=players, rated_players=rated_players,
                            show_results=can_view_results,
                            ratings_count=len(rated_players),
-                           min_required=MIN_RATINGS_TO_VIEW,
+                           min_required=min_required,
                            progress_percent=progress_percent)
 
 
 @app.route('/rate/<int:player_id>')
 def rate_player(player_id):
+    if get_ratings_locked():
+        return redirect(url_for('rate_index'))
     player = database.get_player_by_id(player_id)
     if not player:
         return redirect(url_for('rate_index'))
@@ -98,6 +119,8 @@ def rate_player(player_id):
 
 @app.route('/submit_rating/<int:player_id>', methods=['POST'])
 def submit_rating(player_id):
+    if get_ratings_locked():
+        return "Sorry, you are unable to rate players at the moment.", 403
     rated_players = json.loads(request.cookies.get('rated_players', '[]'))
     if player_id in rated_players:
         return "You have already rated this player!", 400
@@ -126,22 +149,33 @@ def submit_rating(player_id):
 def thank_you(player_id):
     player = database.get_player_by_id(player_id)
     rated_players = json.loads(request.cookies.get('rated_players', '[]'))
-    can_view_results = SHOW_RESULTS and len(rated_players) >= MIN_RATINGS_TO_VIEW
+    min_required = get_min_ratings_to_view()
+    can_view_results = get_show_results() and len(rated_players) >= min_required
     return render_template('thank_you.html', player=player,
                            show_results=can_view_results,
                            ratings_count=len(rated_players),
-                           min_required=MIN_RATINGS_TO_VIEW)
+                           min_required=min_required)
 
 
 @app.route('/results')
 def results():
-    if not SHOW_RESULTS:
-        return "<h1>Results hidden</h1>", 403
     rated_players = json.loads(request.cookies.get('rated_players', '[]'))
-    if len(rated_players) < MIN_RATINGS_TO_VIEW:
-        return redirect(url_for('rate_index'))
+    min_required = get_min_ratings_to_view()
+
+    if not get_show_results():
+        return render_template('results.html', locked=True, reason='admin',
+                               averages=[], ratings_count=len(rated_players),
+                               min_required=min_required, progress_percent=0)
+
+    if len(rated_players) < min_required:
+        progress_percent = int(len(rated_players) / min_required * 100) if min_required > 0 else 100
+        return render_template('results.html', locked=True, reason='progress',
+                               averages=[], ratings_count=len(rated_players),
+                               min_required=min_required, progress_percent=progress_percent)
+
     averages = database.get_average_ratings_filtered(filter_outliers=True)
-    return render_template('results.html', averages=averages)
+    averages = [a for a in averages if a[0] not in database.GUEST_NAMES]
+    return render_template('results.html', locked=False, averages=averages)
 
 
 @app.route('/player/<int:player_id>')
@@ -188,6 +222,8 @@ def generate_teams():
 
     averages = database.get_average_ratings_filtered(filter_outliers=True)
     player_data = []
+    form_by_name = {}
+    streak_debug = []
     for player_id_str in selected_player_ids:
         player_id  = int(player_id_str)
         player     = database.get_player_by_id(player_id)
@@ -204,6 +240,35 @@ def generate_teams():
             overall_rating = sum(all_attrs) / len(all_attrs) if all_attrs else 5.0
         else:
             defender_rating = attacker_rating = overall_rating = 5.0
+
+        base_defender_rating = defender_rating
+        base_attacker_rating = attacker_rating
+
+        # Factor in recent form: a player who has won 3+ of their last 5 games
+        # gets their rating inflated (10%/15%/20% for 3/4/5 wins out of 5),
+        # and a player who has lost 3+ of their last 5 games gets the same
+        # deflation. Based on proportion of results, not a consecutive streak.
+        form_summary = database.get_player_form_summary(player[1], limit=5)
+        form_by_name[player[1]] = form_summary
+        form_pct = 0.0
+        if form_summary['wins'] >= 3:
+            form_pct = form_multiplier(form_summary['wins'])
+        elif form_summary['losses'] >= 3:
+            form_pct = -form_multiplier(form_summary['losses'])
+        if form_pct:
+            defender_rating *= (1 + form_pct)
+            attacker_rating *= (1 + form_pct)
+
+        streak_debug.append({
+            'name': player[1],
+            'wins': form_summary['wins'],
+            'losses': form_summary['losses'],
+            'streak_pct': form_pct,
+            'base_defender': base_defender_rating,
+            'base_attacker': base_attacker_rating,
+            'adjusted_defender': defender_rating,
+            'adjusted_attacker': attacker_rating,
+        })
 
         player_data.append({
             'id': player_id,
@@ -224,7 +289,9 @@ def generate_teams():
     players = database.get_players()
     return render_template('team_picker.html',
                            players=players, teams=teams, error=None,
-                           gameweek_key=gw_key, existing=None)
+                           gameweek_key=gw_key, existing=None,
+                           player_forms=form_by_name,
+                           streak_debug=streak_debug)
 
 
 @app.route('/confirm_teams', methods=['POST'])
@@ -241,6 +308,17 @@ def confirm_teams():
 
     database.save_gameweek_teams(gw_key, bibs, colours, bibs_avg, colours_avg)
     return redirect(url_for('team_picker') + f'?confirmed={gw_key}')
+
+
+# ── Standings ─────────────────────────────────────────────────────────────────
+
+@app.route('/standings')
+def standings():
+    from datetime import datetime
+    year  = int(request.args.get('year', datetime.now().year))
+    stats = {name: s for name, s in database.get_season_stats(year).items()
+              if name not in database.GUEST_NAMES}
+    return render_template('standings.html', stats=stats, year=year)
 
 
 # ── Admin ─────────────────────────────────────────────────────────────────────
@@ -265,20 +343,34 @@ def admin_logout():
 @app.route('/admin')
 @admin_required
 def admin():
-    from datetime import datetime
     year = int(request.args.get('year', datetime.now().year))
     gameweeks = database.get_all_gameweeks()
     # filter to this year
     gw_this_year = [gw for gw in gameweeks if gw['gameweek_key'].endswith(f'-{year}')]
     all_players  = database.get_players()
-    stats        = database.get_season_stats(year)
     current_gw   = get_current_gameweek_key()
     return render_template('admin.html',
                            gameweeks=gw_this_year,
                            all_players=all_players,
-                           stats=stats,
                            year=year,
-                           current_gw=current_gw)
+                           current_gw=current_gw,
+                           ratings_locked=get_ratings_locked(),
+                           show_results=get_show_results(),
+                           min_ratings_to_view=get_min_ratings_to_view())
+
+
+@app.route('/admin/update_settings', methods=['POST'])
+@admin_required
+def admin_update_settings():
+    """Update the live rate-page lock / results-page lock / min-ratings-to-unlock settings."""
+    database.set_setting('ratings_locked', '1' if request.form.get('rate_locked') == 'on' else '0')
+    database.set_setting('show_results', '0' if request.form.get('results_locked') == 'on' else '1')
+    try:
+        min_ratings = max(0, int(request.form.get('min_ratings_to_view', '0')))
+    except ValueError:
+        min_ratings = 0
+    database.set_setting('min_ratings_to_view', str(min_ratings))
+    return redirect(url_for('admin'))
 
 
 @app.route('/admin/save_result', methods=['POST'])
@@ -328,7 +420,59 @@ def add_gameweek():
     return redirect(url_for('admin'))
 
 
+@app.route('/admin/backup')
+@admin_required
+def admin_backup():
+    """Download the current SQLite database file as a timestamped backup."""
+    if not os.path.exists(database.DB_PATH):
+        return redirect(url_for('admin', restore_error='No database file found to back up.'))
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    return send_file(database.DB_PATH, as_attachment=True,
+                      download_name=f'ratings_backup_{timestamp}.db')
+
+
+@app.route('/admin/restore_backup', methods=['POST'])
+@admin_required
+def admin_restore_backup():
+    """Restore the database from an uploaded .db backup file."""
+    upload = request.files.get('backup_file')
+    if not upload or not upload.filename:
+        return redirect(url_for('admin', restore_error='No file selected.'))
+
+    data = upload.read()
+    if not data.startswith(b'SQLite format 3\x00'):
+        return redirect(url_for('admin', restore_error='That file is not a valid SQLite database.'))
+
+    # Safety net: keep a copy of the current database before overwriting it.
+    if os.path.exists(database.DB_PATH):
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        shutil.copy(database.DB_PATH, f'{database.DB_PATH}.pre_restore_{timestamp}.bak')
+
+    with open(database.DB_PATH, 'wb') as f:
+        f.write(data)
+
+    database.init_db()
+    return redirect(url_for('admin', restore_ok=1))
+
+
+@app.route('/admin/reset_ratings', methods=['POST'])
+@admin_required
+def admin_reset_ratings():
+    """Permanently delete all submitted player ratings (players/gameweeks untouched)."""
+    database.reset_ratings()
+    return redirect(url_for('admin'))
+
+
 # ── ILP helpers ───────────────────────────────────────────────────────────────
+
+def form_multiplier(count):
+    """Rating adjustment magnitude for winning/losing 3+ of the last 5 games."""
+    if count >= 5:
+        return 0.20
+    if count == 4:
+        return 0.15
+    return 0.10  # count == 3
+
 
 def balance_teams_ilp(players):
     n    = len(players)
@@ -383,4 +527,4 @@ def assign_positions(players):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000)

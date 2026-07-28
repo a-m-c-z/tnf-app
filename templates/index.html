@@ -1,144 +1,210 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Player Ratings</title>
+    <title>Player Ratings — TNF</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --green:   #1a7a2e;
+            --green-l: #2d9e45;
+            --bibs:    #f5c518;
+            --colours: #dc3545;
+            --bg:      #0f1a12;
+            --card:    #1a2b1e;
+            --border:  #2a3d2e;
+            --text:    #e8f0e9;
+            --muted:   #7a9a7e;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: #f5f5f5;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
         }
-        h1 {
-            color: #333;
-            text-align: center;
+
+        header {
+            background: linear-gradient(135deg, #0a1a0d 0%, #1a3020 100%);
+            border-bottom: 2px solid var(--green);
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
-        .nav {
-            text-align: center;
-            margin: 20px 0;
+
+        header h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem;
+            letter-spacing: 3px;
+            color: var(--bibs);
         }
-        .nav a {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
+
+        header nav a {
+            color: var(--muted);
             text-decoration: none;
-            border-radius: 5px;
-            margin: 0 10px;
+            font-size: 0.85rem;
+            margin-left: 20px;
+            transition: color .2s;
         }
-        .nav a:hover {
-            background-color: #0056b3;
+        header nav a:hover { color: var(--text); }
+
+        main { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
+
+        .section-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.4rem;
+            letter-spacing: 2px;
+            color: var(--green-l);
+            margin-bottom: 16px;
+            text-align: center;
         }
+
+        /* ── Progress ── */
+        .progress-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 22px 24px;
+            margin-bottom: 28px;
+            text-align: center;
+        }
+        .progress-box h3 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            color: var(--bibs);
+            margin-bottom: 8px;
+        }
+        .progress-box p { color: var(--muted); margin-bottom: 12px; }
+        .progress-bar-container {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden;
+            height: 26px;
+            margin: 0 auto 12px;
+            max-width: 400px;
+        }
+        .progress-bar {
+            background: var(--green-l);
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: width .3s;
+            min-width: 40px;
+        }
+        .progress-note { color: #4caf50; font-weight: 600; }
+
+        /* ── Player grid ── */
         .player-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 30px;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
         }
+
         .player-card {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px 14px;
             text-align: center;
+            transition: border-color .15s;
         }
+        .player-card:hover { border-color: var(--green-l); }
         .player-card h3 {
-            margin: 0 0 15px 0;
-            color: #333;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text);
         }
         .player-card a {
             display: inline-block;
             padding: 8px 16px;
-            background-color: #28a745;
+            background: var(--green-l);
             color: white;
             text-decoration: none;
-            border-radius: 4px;
-            transition: background-color 0.3s;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: background .2s;
         }
-        .player-card a:hover {
-            background-color: #218838;
-        }
-        .already-rated {
-            background-color: #f0f0f0;
-            opacity: 0.7;
-        }
-        .already-rated a {
-            background-color: #6c757d;
-            cursor: not-allowed;
-        }
-        .already-rated a:hover {
-            background-color: #6c757d;
-        }
+        .player-card a:hover { background: var(--green); }
+
+        .player-card.already-rated { opacity: 0.6; }
+
         .rated-badge {
             display: inline-block;
-            background-color: #ffc107;
-            color: #000;
-            padding: 4px 8px;
-            border-radius: 3px;
-            font-size: 0.85em;
-            margin-top: 8px;
-        }
-        .header-image {
-            width: 100%;
-            max-width: 600px;
-            height: auto;
-            border-radius: 8px;
-            margin: 0 auto 30px auto;
-            display: block;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background: rgba(245,197,24,0.15);
+            border: 1px solid rgba(245,197,24,0.4);
+            color: var(--bibs);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
         }
     </style>
 </head>
 <body>
-    <img src="https://i.ytimg.com/vi/HkHAJTj_OMs/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDKhJ9o_hsO8AiP1DcwRR_OQq1xpQ" 
-         alt="Header Image" 
-         class="header-image">
-    
-    <h1>TNF Football</h1>
-    
-    <div class="nav">
-        <a href="/team_picker">Team Picker</a>
-        {% if show_results %}
-        <a href="/results">View Results</a>
-        {% endif %}
-    </div>
+    <header>
+        <h1>⚽ TNF</h1>
+        <nav>
+            <a href="/team_picker">Team Picker</a>
+            <a href="/rate">Rate</a>
+            <a href="/results">Ratings</a>
+            <a href="/standings">Standings</a>
+            <a href="/admin">Admin</a>
+        </nav>
+    </header>
 
-    {% if ratings_count < min_required %}
-    <div class="progress-box">
-        <h3 style="margin-top: 0; color: #333;">Your Progress</h3>
-        <p style="color: #666;">Rate <strong>{{ min_required }}</strong> players to unlock results</p>
-        <div class="progress-bar-container">
-            <div class="progress-bar" style="width: {{ progress_percent }}%;">
-                {{ ratings_count }}/{{ min_required }}
+    <main>
+        {% if locked %}
+        <div class="progress-box">
+            <h3>🔒 Ratings Locked</h3>
+            <p>Sorry, you are unable to rate players at the moment.</p>
+        </div>
+        {% else %}
+        {% if ratings_count < min_required %}
+        <div class="progress-box">
+            <h3>Your Progress</h3>
+            <p>Rate <strong>{{ min_required }}</strong> players to unlock results</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: {{ progress_percent }}%;">
+                    {{ ratings_count }}/{{ min_required }}
+                </div>
             </div>
-        </div>
-        <p style="color: #28a745; font-weight: bold; margin-bottom: 0;">
             {% set remaining = min_required - ratings_count %}
-            {% if remaining == 1 %}
-                Just 1 more to go! 🎉
-            {% else %}
-                {{ remaining }} more to unlock results!
-            {% endif %}
-        </p>
-    </div>
-    {% endif %}
-
-    <h2 style="text-align: center; color: #666;">Select a player to rate:</h2>
-
-    <div class="player-grid">
-        {% for player in players %}
-        <div class="player-card {% if player[0] in rated_players %}already-rated{% endif %}">
-            <h3>{{ player[1] }}</h3>
-            {% if player[0] in rated_players %}
-                <span class="rated-badge">✓ Already Rated</span>
-            {% else %}
-                <a href="/rate/{{ player[0] }}">Rate Player</a>
-            {% endif %}
+            <p class="progress-note">
+                {% if remaining == 1 %}
+                    Just 1 more to go! 🎉
+                {% else %}
+                    {{ remaining }} more to unlock results!
+                {% endif %}
+            </p>
         </div>
-        {% endfor %}
-    </div>
+        {% endif %}
 
+        <p class="section-title">Select a Player to Rate</p>
+
+        <div class="player-grid">
+            {% for player in players %}
+            <div class="player-card {% if player[0] in rated_players %}already-rated{% endif %}">
+                <h3>{{ player[1] }}</h3>
+                {% if player[0] in rated_players %}
+                    <span class="rated-badge">✓ Already Rated</span>
+                {% else %}
+                    <a href="/rate/{{ player[0] }}">Rate Player</a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </main>
 </body>
 </html>

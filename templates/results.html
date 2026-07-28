@@ -1,36 +1,158 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Rating Results</title>
+    <title>Rating Results — TNF</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1200px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: #f5f5f5;
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --green:   #1a7a2e;
+            --green-l: #2d9e45;
+            --bibs:    #f5c518;
+            --colours: #dc3545;
+            --bg:      #0f1a12;
+            --card:    #1a2b1e;
+            --card2:   #1f3325;
+            --border:  #2a3d2e;
+            --text:    #e8f0e9;
+            --muted:   #7a9a7e;
         }
-        h1 {
-            color: #333;
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        header {
+            background: linear-gradient(135deg, #0a1a0d 0%, #1a3020 100%);
+            border-bottom: 2px solid var(--green);
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        header h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem;
+            letter-spacing: 3px;
+            color: var(--bibs);
+        }
+
+        header nav a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.85rem;
+            margin-left: 20px;
+            transition: color .2s;
+        }
+        header nav a:hover { color: var(--text); }
+
+        main { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
+
+        .section-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            color: var(--green-l);
+            margin-bottom: 18px;
+            margin-top: 36px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+        }
+        .section-title:first-child { margin-top: 0; }
+
+        /* ── Locked state ── */
+        .progress-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 22px 24px;
+            margin-bottom: 28px;
             text-align: center;
         }
-        .back-link {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: #007bff;
-            text-decoration: none;
+        .progress-box h3 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            color: var(--bibs);
+            margin-bottom: 8px;
         }
-        .back-link:hover {
-            text-decoration: underline;
+        .progress-box p { color: var(--muted); margin-bottom: 12px; }
+        .progress-bar-container {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden;
+            height: 26px;
+            margin: 0 auto 12px;
+            max-width: 400px;
         }
+        .progress-bar {
+            background: var(--green-l);
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: width .3s;
+            min-width: 40px;
+        }
+        .progress-note { color: #4caf50; font-weight: 600; }
+        .progress-box a { color: var(--green-l); font-weight: 600; text-decoration: none; }
+        .progress-box a:hover { text-decoration: underline; }
+
+        /* ── Table ── */
+        .table-wrap {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 8px;
+            overflow-x: auto;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th {
+            background: var(--card2);
+            color: var(--muted);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        th:hover { color: var(--text); }
+        td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--muted); }
+        td:first-child { color: var(--text); font-weight: 600; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .rating-high { color: #4caf50; font-weight: 600; }
+        .rating-medium { color: var(--bibs); font-weight: 600; }
+        .rating-low { color: var(--colours); font-weight: 600; }
+        .no-ratings { color: var(--muted); font-style: italic; }
+        .num-ratings { font-size: 0.85em; color: var(--muted); }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+        }
+
+        /* ── Comparison ── */
         .comparison-section {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 28px;
             text-align: center;
         }
         .player-select {
@@ -44,160 +166,194 @@
         .player-select > div {
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 6px;
         }
         .player-select label {
-            font-weight: bold;
-            color: #333;
-            font-size: 14px;
+            font-weight: 600;
+            color: var(--muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         .player-select select {
-            padding: 8px 12px;
-            border: 2px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
+            padding: 9px 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 6px;
+            font-size: 0.9rem;
             min-width: 180px;
+            outline: none;
         }
+        .player-select select:focus { border-color: var(--green-l); }
+
         .chart-container {
             max-width: 600px;
             height: 400px;
-            margin: 30px auto;
+            margin: 30px auto 0;
             display: flex;
             justify-content: center;
             align-items: center;
         }
-        #radarChart {
-            max-width: 100%;
-            max-height: 100%;
-        }
-        .compare-btn {
-            background-color: #007bff;
-            color: white;
+        #radarChart { max-width: 100%; max-height: 100%; }
+
+        .compare-btn, .clear-btn {
             padding: 10px 20px;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
         }
-        .compare-btn:hover {
-            background-color: #0056b3;
-        }
+        .compare-btn { background: var(--green-l); color: white; }
+        .compare-btn:hover { background: var(--green); }
         .clear-btn {
-            background-color: #6c757d;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
             margin-left: 10px;
         }
-        .clear-btn:hover {
-            background-color: #545b62;
-        }
-        .table-container {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow-x: auto;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        th {
-            background-color: #007bff;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        tr:hover {
-            background-color: #f5f5f5;
-        }
-        .no-ratings {
-            color: #999;
-            font-style: italic;
-        }
-        .rating-high {
-            color: #28a745;
-            font-weight: bold;
-        }
-        .rating-medium {
-            color: #ffc107;
-            font-weight: bold;
-        }
-        .rating-low {
-            color: #dc3545;
-            font-weight: bold;
-        }
-        .num-ratings {
-            font-size: 0.9em;
-            color: #666;
-        }
+        .clear-btn:hover { border-color: var(--colours); color: #ff8a93; }
     </style>
 </head>
 <body>
-    <a href="/" class="back-link">← Back to all players</a>
-    
-    <h1>Average Player Ratings</h1>
+    <header>
+        <h1>⚽ TNF</h1>
+        <nav>
+            <a href="/team_picker">Team Picker</a>
+            <a href="/rate">Rate</a>
+            <a href="/results">Ratings</a>
+            <a href="/standings">Standings</a>
+            <a href="/admin">Admin</a>
+        </nav>
+    </header>
 
-    <!-- Ratings Table -->
-    <h2 style="text-align: center; color: #333; margin-top: 40px;">Full Ratings Table</h2>
-    
-    <div class="table-container">
-        {% if averages %}
-        <table id="ratingsTable">
-            <thead>
-                <tr>
-                    <th onclick="sortTable(0)">Player</th>
-                    <th onclick="sortTable(1)">Def Work</th>
-                    <th onclick="sortTable(2)">Att Work</th>
-                    <th onclick="sortTable(3)">Fitness</th>
-                    <th onclick="sortTable(4)">Passing</th>
-                    <th onclick="sortTable(5)">Defending</th>
-                    <th onclick="sortTable(6)">Shooting</th>
-                    <th onclick="sortTable(7)">Physicality</th>
-                    <th onclick="sortTable(8)">Pace</th>
-                    <th onclick="sortTable(9)">GK</th>
-                    <th onclick="sortTable(10)">Ratings</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for avg in averages %}
-                <tr>
-                    <td><strong>{{ avg[0] }}</strong></td>
-                    {% for i in range(1, 10) %}
-                        <td>
-                            {% if avg[i] %}
-                                {% if avg[i] >= 7.5 %}
-                                    <span class="rating-high">{{ avg[i] }}</span>
-                                {% elif avg[i] >= 5.0 %}
-                                    <span class="rating-medium">{{ avg[i] }}</span>
-                                {% else %}
-                                    <span class="rating-low">{{ avg[i] }}</span>
-                                {% endif %}
-                            {% else %}
-                                <span class="no-ratings">-</span>
-                            {% endif %}
-                        </td>
-                    {% endfor %}
-                    <td class="num-ratings">{{ avg[10] }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <main>
+        {% if locked %}
+        <div class="progress-box">
+            {% if reason == 'admin' %}
+            <h3>🔒 Ratings Locked</h3>
+            <p>Sorry, the ratings page isn't available at the moment.</p>
+            {% else %}
+            <h3>🔒 Ratings Locked</h3>
+            <p>Rate <strong>{{ min_required }}</strong> players to unlock results</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: {{ progress_percent }}%;">
+                    {{ ratings_count }}/{{ min_required }}
+                </div>
+            </div>
+            {% set remaining = min_required - ratings_count %}
+            <p class="progress-note">
+                {% if remaining == 1 %}
+                    Just 1 more to go! 🎉
+                {% else %}
+                    {{ remaining }} more to unlock results!
+                {% endif %}
+            </p>
+            <p style="margin-top:14px;"><a href="/rate">Go rate players →</a></p>
+            {% endif %}
+        </div>
         {% else %}
-        <p style="text-align: center; color: #666; padding: 40px;">
-            No ratings yet. Be the first to rate a player!
-        </p>
+        <div class="section-title">Full Ratings Table</div>
+
+        <div class="table-wrap">
+            {% if averages %}
+            <table id="ratingsTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(0)">Player</th>
+                        <th onclick="sortTable(1)">Def Work</th>
+                        <th onclick="sortTable(2)">Att Work</th>
+                        <th onclick="sortTable(3)">Fitness</th>
+                        <th onclick="sortTable(4)">Passing</th>
+                        <th onclick="sortTable(5)">Defending</th>
+                        <th onclick="sortTable(6)">Shooting</th>
+                        <th onclick="sortTable(7)">Physicality</th>
+                        <th onclick="sortTable(8)">Pace</th>
+                        <th onclick="sortTable(9)">GK</th>
+                        <th onclick="sortTable(10)">Ratings</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for avg in averages %}
+                    <tr>
+                        <td><strong>{{ avg[0] }}</strong></td>
+                        {% for i in range(1, 10) %}
+                            <td>
+                                {% if avg[i] %}
+                                    {% if avg[i] >= 7.5 %}
+                                        <span class="rating-high">{{ avg[i] }}</span>
+                                    {% elif avg[i] >= 5.0 %}
+                                        <span class="rating-medium">{{ avg[i] }}</span>
+                                    {% else %}
+                                        <span class="rating-low">{{ avg[i] }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="no-ratings">-</span>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                        <td class="num-ratings">{{ avg[10] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="no-data">No ratings yet. Be the first to rate a player!</p>
+            {% endif %}
+        </div>
+
+        <div class="section-title">Player Comparison</div>
+
+        <div class="comparison-section">
+            <div class="player-select">
+                <div>
+                    <label for="player1">Player 1</label>
+                    <select id="player1">
+                        <option value="">Select player...</option>
+                        {% for avg in averages %}
+                        {% if avg[10] > 0 %}
+                        <option value="{{ loop.index0 }}">{{ avg[0] }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label for="player2">Player 2</label>
+                    <select id="player2">
+                        <option value="">Select player...</option>
+                        {% for avg in averages %}
+                        {% if avg[10] > 0 %}
+                        <option value="{{ loop.index0 }}">{{ avg[0] }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label for="player3">Player 3</label>
+                    <select id="player3">
+                        <option value="">Select player...</option>
+                        {% for avg in averages %}
+                        {% if avg[10] > 0 %}
+                        <option value="{{ loop.index0 }}">{{ avg[0] }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <button class="compare-btn" onclick="updateChart()">Compare Players</button>
+            <button class="clear-btn" onclick="clearComparison()">Clear</button>
+
+            <div class="chart-container">
+                <canvas id="radarChart"></canvas>
+            </div>
+        </div>
         {% endif %}
-    </div>
+    </main>
+
 
 
     <script>
@@ -345,56 +501,5 @@
             rows.forEach(row => tbody.appendChild(row));
         }
     </script>
-
-    <!-- Player Comparison Tool -->
-    <div class="comparison-section">
-        <h2 style="margin-top: 0; color: #333;">Player Comparison</h2>
-        
-        <div class="player-select">
-            <div>
-                <label for="player1">Player 1:</label>
-                <select id="player1">
-                    <option value="">Select player...</option>
-                    {% for avg in averages %}
-                    {% if avg[10] > 0 %}
-                    <option value="{{ loop.index0 }}">{{ avg[0] }}</option>
-                    {% endif %}
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div>
-                <label for="player2">Player 2:</label>
-                <select id="player2">
-                    <option value="">Select player...</option>
-                    {% for avg in averages %}
-                    {% if avg[10] > 0 %}
-                    <option value="{{ loop.index0 }}">{{ avg[0] }}</option>
-                    {% endif %}
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div>
-                <label for="player3">Player 3:</label>
-                <select id="player3">
-                    <option value="">Select player...</option>
-                    {% for avg in averages %}
-                    {% if avg[10] > 0 %}
-                    <option value="{{ loop.index0 }}">{{ avg[0] }}</option>
-                    {% endif %}
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
-        
-        <button class="compare-btn" onclick="updateChart()">Compare Players</button>
-        <button class="clear-btn" onclick="clearComparison()">Clear</button>
-        
-        <div class="chart-container">
-            <canvas id="radarChart"></canvas>
-        </div>
-    </div>
-
 </body>
 </html>

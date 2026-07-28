@@ -224,67 +224,120 @@
             margin-top: 8px;
         }
 
-        /* ── Stats ── */
-        .stats-overview {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 14px;
-            margin-bottom: 30px;
-        }
-
-        .stat-highlight {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px;
-        }
-        .stat-highlight .label {
-            font-size: 0.7rem;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 6px;
-        }
-        .stat-highlight .value {
-            font-family: 'Bebas Neue', sans-serif;
-            font-size: 1.6rem;
-            color: var(--bibs);
-            letter-spacing: 1px;
-            line-height: 1;
-        }
-        .stat-highlight .sub {
-            font-size: 0.75rem;
-            color: var(--muted);
-            margin-top: 4px;
-        }
-
-        /* Full stats table */
-        .table-wrap { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        th {
-            background: var(--card2);
-            color: var(--muted);
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 10px 12px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-            cursor: pointer;
-            white-space: nowrap;
-        }
-        th:hover { color: var(--text); }
-        td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--muted); }
-        td:first-child { color: var(--text); font-weight: 600; }
-        tr:hover td { background: rgba(255,255,255,0.02); }
-        .pct-high { color: #4caf50; font-weight: 600; }
-        .pct-low  { color: var(--colours); font-weight: 600; }
-
         .no-data {
             text-align: center;
             padding: 40px;
             color: var(--muted);
         }
+
+        .restore-ok {
+            background: rgba(45,158,69,0.15);
+            border: 1px solid var(--green-l);
+            color: var(--green-l);
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 14px;
+            font-size: 0.85rem;
+        }
+
+        .data-mgmt-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+        }
+        .data-mgmt-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .data-mgmt-card h4 { font-size: 1rem; }
+        .data-mgmt-card p { font-size: 0.8rem; color: var(--muted); flex-grow: 1; }
+        .data-mgmt-card input[type="file"] {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+        .btn-action {
+            display: inline-block;
+            text-align: center;
+            padding: 9px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .btn-backup  { background: var(--green-l); color: white; }
+        .btn-backup:hover  { background: var(--green); }
+        .btn-restore { background: var(--bibs); color: #241d02; }
+        .btn-restore:hover { filter: brightness(0.9); }
+        .btn-reset   { background: transparent; color: var(--colours); border: 1px solid var(--colours); }
+        .btn-reset:hover   { background: var(--colours); color: white; }
+
+        .settings-form {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            align-items: flex-end;
+        }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        .toggle-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--colours);
+            cursor: pointer;
+        }
+        .toggle-row .toggle-hint {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+        .toggle-col { display: flex; flex-direction: column; gap: 4px; }
+        .settings-form .field-col label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            display: block;
+            margin-bottom: 4px;
+        }
+        .settings-form .field-col input {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 9px 12px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            width: 90px;
+        }
+        .settings-form button {
+            padding: 9px 20px;
+            background: var(--green-l);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .settings-form button:hover { background: var(--green); }
     </style>
 </head>
 <body>
@@ -292,12 +345,45 @@
     <h1>⚽ TNF Admin</h1>
     <div style="color:var(--muted); font-size:0.85rem;">{{ year }} Season</div>
     <nav>
-        <a href="/">Team Picker</a>
+        <a href="/team_picker">Team Picker</a>
+        <a href="/rate">Rate</a>
+        <a href="/results">Ratings</a>
+        <a href="/standings">Standings</a>
         <a href="/admin/logout" class="logout">Logout</a>
     </nav>
 </header>
 
 <main>
+
+    <!-- ── Access Settings ────────────────────────────────── -->
+    <div class="section-title">Access Settings</div>
+
+    <form method="POST" action="/admin/update_settings" class="settings-form">
+        <div class="toggle-col">
+            <label class="toggle-row">
+                <input type="checkbox" name="rate_locked" {% if ratings_locked %}checked{% endif %}>
+                Lock Rate Players page
+            </label>
+            <span class="toggle-hint">When locked, players can't submit new ratings.</span>
+        </div>
+
+        <div class="toggle-col">
+            <label class="toggle-row">
+                <input type="checkbox" name="results_locked" {% if not show_results %}checked{% endif %}>
+                Lock Ratings page
+            </label>
+            <span class="toggle-hint">When locked, the Ratings page is hidden until unlocked.</span>
+        </div>
+
+        <div class="field-col">
+            <label>Ratings needed to unlock Ratings page</label>
+            <input type="number" name="min_ratings_to_view" min="0" value="{{ min_ratings_to_view }}">
+        </div>
+
+        <div>
+            <button type="submit">Save Settings</button>
+        </div>
+    </form>
 
     <!-- ── Add Retrospective Gameweek ────────────────────── -->
     <div class="section-title">Add Retrospective Gameweek</div>
@@ -428,169 +514,44 @@
     <div class="no-data">No gameweeks recorded yet for {{ year }}. Confirm some teams from the Team Picker first.</div>
     {% endif %}
 
-    <!-- ── Season Highlights ──────────────────────────────── -->
-    <div class="section-title">{{ year }} Season Highlights</div>
+    <!-- ── Data Management ───────────────────────────────── -->
+    <div class="section-title">Data Management</div>
 
-    {% if stats %}
-    {% set players_list = stats.items() | list %}
-
-    {# Helper macros to find leaders #}
-    {% set ns = namespace(
-        most_games_name='', most_games_val=0,
-        most_wins_name='', most_wins_val=0,
-        most_losses_name='', most_losses_val=0,
-        win_streak_name='', win_streak_val=0,
-        loss_streak_name='', loss_streak_val=0,
-        most_motm_name='', most_motm_val=0,
-        best_win_pct_name='', best_win_pct_val=0,
-        worst_loss_pct_name='', worst_loss_pct_val=0,
-        lethal_p1='', lethal_p2='', lethal_win_pct=0, lethal_games=0
-    ) %}
-
-    {% for name, s in players_list %}
-        {% if s.games > ns.most_games_val %}{% set ns.most_games_val = s.games %}{% set ns.most_games_name = name %}{% endif %}
-        {% if s.wins > ns.most_wins_val %}{% set ns.most_wins_val = s.wins %}{% set ns.most_wins_name = name %}{% endif %}
-        {% if s.losses > ns.most_losses_val %}{% set ns.most_losses_val = s.losses %}{% set ns.most_losses_name = name %}{% endif %}
-        {% if s.win_streak > ns.win_streak_val %}{% set ns.win_streak_val = s.win_streak %}{% set ns.win_streak_name = name %}{% endif %}
-        {% if s.loss_streak > ns.loss_streak_val %}{% set ns.loss_streak_val = s.loss_streak %}{% set ns.loss_streak_name = name %}{% endif %}
-        {% if s.motm > ns.most_motm_val %}{% set ns.most_motm_val = s.motm %}{% set ns.most_motm_name = name %}{% endif %}
-        {% if s.games >= 3 and s.win_pct > ns.best_win_pct_val %}{% set ns.best_win_pct_val = s.win_pct %}{% set ns.best_win_pct_name = name %}{% endif %}
-        {% if s.games >= 3 and s.loss_pct > ns.worst_loss_pct_val %}{% set ns.worst_loss_pct_val = s.loss_pct %}{% set ns.worst_loss_pct_name = name %}{% endif %}
-        {% if s.best_partner and s.best_partner_win_pct > ns.lethal_win_pct %}
-            {% set ns.lethal_win_pct = s.best_partner_win_pct %}
-            {% set ns.lethal_p1 = name %}
-            {% set ns.lethal_p2 = s.best_partner %}
-            {% set ns.lethal_games = s.partnerships[s.best_partner].games if s.best_partner in s.partnerships else 0 %}
-        {% endif %}
-    {% endfor %}
-
-    <div class="stats-overview">
-        <div class="stat-highlight">
-            <div class="label">Most Games Played</div>
-            <div class="value">{{ ns.most_games_name }}</div>
-            <div class="sub">{{ ns.most_games_val }} games</div>
-        </div>
-        <div class="stat-highlight">
-            <div class="label">Most Wins</div>
-            <div class="value">{{ ns.most_wins_name }}</div>
-            <div class="sub">{{ ns.most_wins_val }} wins</div>
-        </div>
-        <div class="stat-highlight">
-            <div class="label">Longest Win Streak</div>
-            <div class="value">{{ ns.win_streak_name }}</div>
-            <div class="sub">{{ ns.win_streak_val }} in a row</div>
-        </div>
-        <div class="stat-highlight">
-            <div class="label">Longest Losing Streak</div>
-            <div class="value">{{ ns.loss_streak_name }}</div>
-            <div class="sub">{{ ns.loss_streak_val }} in a row</div>
-        </div>
-        <div class="stat-highlight">
-            <div class="label">Most Man of the Match</div>
-            <div class="value">{{ ns.most_motm_name if ns.most_motm_name else '—' }}</div>
-            <div class="sub">{{ ns.most_motm_val }} awards</div>
-        </div>
-        <div class="stat-highlight">
-            <div class="label">Highest Win % (min 3 games)</div>
-            <div class="value">{{ ns.best_win_pct_name }}</div>
-            <div class="sub">{{ ns.best_win_pct_val }}%</div>
-        </div>
-        <div class="stat-highlight">
-            <div class="label">Highest Loss % (min 3 games)</div>
-            <div class="value">{{ ns.worst_loss_pct_name }}</div>
-            <div class="sub">{{ ns.worst_loss_pct_val }}%</div>
-        </div>
-        <div class="stat-highlight" style="border-color: var(--colours); border-width: 2px;">
-            <div class="label">⚡ Most Lethal Partnership</div>
-            {% if ns.lethal_p1 %}
-            <div class="value" style="font-size:1.1rem; color: var(--colours);">{{ ns.lethal_p1 }} & {{ ns.lethal_p2 }}</div>
-            <div class="sub">{{ ns.lethal_win_pct }}% win rate together · {{ ns.lethal_games }} games</div>
-            {% else %}
-            <div class="value">—</div>
-            <div class="sub">Not enough data yet (min 3 games together)</div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Full table -->
-    <div class="section-title">Full Player Stats</div>
-    <div class="table-wrap">
-        <table id="statsTable">
-            <thead>
-                <tr>
-                    <th onclick="sortTable(0)">Player</th>
-                    <th onclick="sortTable(1)">Games</th>
-                    <th onclick="sortTable(2)">W</th>
-                    <th onclick="sortTable(3)">D</th>
-                    <th onclick="sortTable(4)">L</th>
-                    <th onclick="sortTable(5)">Win %</th>
-                    <th onclick="sortTable(6)">Loss %</th>
-                    <th onclick="sortTable(7)">Win Streak</th>
-                    <th onclick="sortTable(8)">Loss Streak</th>
-                    <th onclick="sortTable(9)">MOTM</th>
-                    <th>Best Partner</th>
-                    <th>Worst Partner</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for name, s in players_list | sort(attribute='1.games', reverse=True) %}
-                {% if s.games > 0 %}
-                <tr>
-                    <td>{{ name }}</td>
-                    <td>{{ s.games }}</td>
-                    <td>{{ s.wins }}</td>
-                    <td>{{ s.draws }}</td>
-                    <td>{{ s.losses }}</td>
-                    <td class="{% if s.win_pct >= 60 %}pct-high{% elif s.win_pct <= 35 %}pct-low{% endif %}">
-                        {{ s.win_pct }}%
-                    </td>
-                    <td class="{% if s.loss_pct >= 60 %}pct-low{% elif s.loss_pct <= 35 %}pct-high{% endif %}">
-                        {{ s.loss_pct }}%
-                    </td>
-                    <td>{{ s.win_streak }}</td>
-                    <td>{{ s.loss_streak }}</td>
-                    <td>{{ s.motm }}</td>
-                    <td>
-                        {% if s.best_partner %}
-                        {{ s.best_partner }} <span style="color:var(--muted);font-size:0.75rem;">({{ s.best_partner_win_pct }}%)</span>
-                        {% else %}—{% endif %}
-                    </td>
-                    <td>
-                        {% if s.worst_partner %}
-                        {{ s.worst_partner }} <span style="color:var(--muted);font-size:0.75rem;">({{ s.worst_partner_win_pct }}%)</span>
-                        {% else %}—{% endif %}
-                    </td>
-                </tr>
-                {% endif %}
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    {% else %}
-    <div class="no-data">No results recorded yet — save some gameweek results above to see stats.</div>
+    {% set restore_error = request.args.get('restore_error') %}
+    {% if restore_error %}
+    <div class="add-error">⚠️ {{ restore_error }}</div>
+    {% endif %}
+    {% if request.args.get('restore_ok') %}
+    <div class="restore-ok">✅ Database restored from backup.</div>
     {% endif %}
 
-</main>
+    <div class="data-mgmt-grid">
+        <div class="data-mgmt-card">
+            <h4>💾 Backup Data</h4>
+            <p>Download the full database (players, ratings, gameweeks, results) as a .db file.</p>
+            <a href="/admin/backup" class="btn-action btn-backup">Download Backup</a>
+        </div>
 
-<script>
-    let sortDirs = {};
-    function sortTable(col) {
-        const table = document.getElementById('statsTable');
-        const tbody = table.querySelector('tbody');
-        const rows  = Array.from(tbody.querySelectorAll('tr'));
-        sortDirs[col] = !sortDirs[col];
-        rows.sort((a, b) => {
-            const aT = a.children[col]?.innerText.trim() || '';
-            const bT = b.children[col]?.innerText.trim() || '';
-            const aV = parseFloat(aT);
-            const bV = parseFloat(bT);
-            if (!isNaN(aV) && !isNaN(bV)) return sortDirs[col] ? aV - bV : bV - aV;
-            return sortDirs[col] ? aT.localeCompare(bT) : bT.localeCompare(aT);
-        });
-        tbody.innerHTML = '';
-        rows.forEach(r => tbody.appendChild(r));
-    }
-</script>
+        <div class="data-mgmt-card">
+            <h4>🔄 Restore From Backup</h4>
+            <p>Upload a previously downloaded .db backup to replace the current database. A safety copy of the current database is kept automatically.</p>
+            <form method="POST" action="/admin/restore_backup" enctype="multipart/form-data"
+                  onsubmit="return confirm('This will REPLACE the entire current database with the uploaded file. Continue?')">
+                <input type="file" name="backup_file" accept=".db" required>
+                <button type="submit" class="btn-action btn-restore">Restore</button>
+            </form>
+        </div>
+
+        <div class="data-mgmt-card">
+            <h4>🗑️ Reset Player Ratings</h4>
+            <p>Permanently delete all submitted player ratings. Players, gameweeks and results are kept.</p>
+            <form method="POST" action="/admin/reset_ratings"
+                  onsubmit="return confirm('This will permanently delete ALL player ratings. This cannot be undone. Continue?')">
+                <button type="submit" class="btn-action btn-reset">Reset Ratings</button>
+            </form>
+        </div>
+    </div>
+
+</main>
 </body>
 </html>

@@ -30,9 +30,10 @@
             background: linear-gradient(135deg, #0a1a0d 0%, #1a3020 100%);
             border-bottom: 2px solid var(--green);
             padding: 18px 24px;
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
-            justify-content: space-between;
+            gap: 12px;
         }
 
         header h1 {
@@ -40,8 +41,12 @@
             font-size: 2rem;
             letter-spacing: 3px;
             color: var(--bibs);
+            justify-self: start;
         }
 
+        header nav {
+            justify-self: end;
+        }
         header nav a {
             color: var(--muted);
             text-decoration: none;
@@ -59,6 +64,7 @@
             letter-spacing: 2px;
             padding: 6px 16px;
             border-radius: 20px;
+            justify-self: center;
         }
 
         main { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
@@ -178,6 +184,36 @@
             margin: 0 auto 24px;
         }
 
+        .form-dot {
+            stroke: rgba(255,255,255,0.55);
+            stroke-width: 1;
+        }
+        .form-dot.W { fill: #2d9e45; }
+        .form-dot.D { fill: #9aa3a0; }
+        .form-dot.L { fill: var(--colours); }
+
+        /* ── Streak debug panel (DEBUG=True only) ── */
+        .debug-panel {
+            background: var(--card);
+            border: 1px dashed var(--bibs);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+        }
+        .debug-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+        .debug-table th, .debug-table td {
+            text-align: left;
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        .debug-table th { color: var(--muted); font-weight: 600; }
+
         /* ── Existing GW notice ── */
         .existing-notice {
             background: var(--card);
@@ -196,6 +232,9 @@
         <h1>⚽ TNF</h1>
         <div class="gw-badge">GW {{ gameweek_key }}</div>
         <nav>
+            <a href="/rate">Rate</a>
+            <a href="/results">Ratings</a>
+            <a href="/standings">Standings</a>
             <a href="/admin">Admin</a>
         </nav>
     </header>
@@ -247,9 +286,24 @@
         </div>
 
         <!-- Pitch graphic -->
+        {% macro form_dots(cx, cy, name) %}
+            {% set f = player_forms.get(name) %}
+            {% if f and f.games > 0 %}
+                {% set n = f.form|length %}
+                {% for g in f.form %}
+                <circle class="form-dot {{ g.result }}" cx="{{ cx - (n-1)*5.5 + loop.index0*11 }}" cy="{{ cy + 39 }}" r="4.5"/>
+                {% endfor %}
+                {% if f.win_streak >= 3 %}
+                <text x="{{ cx + 20 }}" y="{{ cy - 19 }}" text-anchor="middle" font-size="19">🔥</text>
+                {% endif %}
+                {% if f.loss_streak >= 3 %}
+                <text x="{{ cx + 20 }}" y="{{ cy - 19 }}" text-anchor="middle" font-size="19">�</text>
+                {% endif %}
+            {% endif %}
+        {% endmacro %}
         <div class="pitch-wrapper">
         <svg width="100%" viewBox="0 0 500 760" xmlns="http://www.w3.org/2000/svg">
-            <rect x="20" y="10" width="460" height="740" rx="8" fill="#2d7a3a"/>
+            <rect x="20" y="10" width="460" height="740" rx="8" fill="#374a3d"/>
             {% for i in range(5) %}
             <rect x="20" y="{{ 10 + i*148 }}" width="460" height="74" fill="rgba(255,255,255,0.03)"/>
             {% endfor %}
@@ -262,8 +316,8 @@
             <rect x="136" y="654" width="228" height="80" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.5"/>
             <rect x="184" y="698" width="132" height="36" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.5"/>
 
-            <text x="250" y="58" text-anchor="middle" font-family="'Bebas Neue',Arial" font-size="15" font-weight="bold" fill="rgba(255,255,255,0.9)">🟡 BIBS</text>
-            <text x="250" y="74" text-anchor="middle" font-family="Arial" font-size="10" fill="rgba(255,255,255,0.5)">avg {{ "%.1f"|format(teams.bibs_avg) }}</text>
+            <text x="250" y="58" text-anchor="middle" font-family="'Bebas Neue',Arial" font-size="17" font-weight="bold" fill="rgba(255,255,255,0.9)">🟡 BIBS</text>
+            <text x="250" y="74" text-anchor="middle" font-family="Arial" font-size="11" fill="rgba(255,255,255,0.5)">avg {{ "%.1f"|format(teams.bibs_avg) }}</text>
 
             {% set bibs_fwd = teams.bibs | selectattr('position', 'eq', 'FWD') | list %}
             {% set bibs_mid = teams.bibs | selectattr('position', 'eq', 'MID') | list %}
@@ -271,45 +325,51 @@
             {% set def_xs = [200, 300] %}
             {% for p in bibs_def %}
             {% set cx = def_xs[loop.index0] %}
-            <circle cx="{{ cx }}" cy="148" r="26" fill="#F5C518" stroke="white" stroke-width="2"/>
-            <text x="{{ cx }}" y="145" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="#1a1500">{{ p.name }}</text>
-            <text x="{{ cx }}" y="158" text-anchor="middle" font-family="Arial" font-size="8" fill="#3a3000">DEF</text>
+            <circle cx="{{ cx }}" cy="148" r="30" fill="#F5C518" stroke="white" stroke-width="2.5"/>
+            <text x="{{ cx }}" y="146" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1a1500">{{ p.name }}</text>
+            <text x="{{ cx }}" y="160" text-anchor="middle" font-family="Arial" font-size="9" fill="#3a3000">DEF</text>
+            {{ form_dots(cx, 148, p.name) }}
             {% endfor %}
             {% set mid_xs = [140, 360] %}
             {% for p in bibs_mid %}
             {% set cx = mid_xs[loop.index0] %}
-            <circle cx="{{ cx }}" cy="234" r="26" fill="#F5C518" stroke="white" stroke-width="2"/>
-            <text x="{{ cx }}" y="231" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="#1a1500">{{ p.name }}</text>
-            <text x="{{ cx }}" y="244" text-anchor="middle" font-family="Arial" font-size="8" fill="#3a3000">MID</text>
+            <circle cx="{{ cx }}" cy="234" r="30" fill="#F5C518" stroke="white" stroke-width="2.5"/>
+            <text x="{{ cx }}" y="232" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1a1500">{{ p.name }}</text>
+            <text x="{{ cx }}" y="246" text-anchor="middle" font-family="Arial" font-size="9" fill="#3a3000">MID</text>
+            {{ form_dots(cx, 234, p.name) }}
             {% endfor %}
             {% for p in bibs_fwd %}
-            <circle cx="250" cy="324" r="26" fill="#F5C518" stroke="white" stroke-width="2"/>
-            <text x="250" y="321" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="#1a1500">{{ p.name }}</text>
-            <text x="250" y="334" text-anchor="middle" font-family="Arial" font-size="8" fill="#3a3000">FWD</text>
+            <circle cx="250" cy="324" r="30" fill="#F5C518" stroke="white" stroke-width="2.5"/>
+            <text x="250" y="322" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1a1500">{{ p.name }}</text>
+            <text x="250" y="336" text-anchor="middle" font-family="Arial" font-size="9" fill="#3a3000">FWD</text>
+            {{ form_dots(250, 324, p.name) }}
             {% endfor %}
 
-            <text x="250" y="710" text-anchor="middle" font-family="'Bebas Neue',Arial" font-size="15" font-weight="bold" fill="rgba(255,255,255,0.9)">🔴 COLOURS</text>
-            <text x="250" y="726" text-anchor="middle" font-family="Arial" font-size="10" fill="rgba(255,255,255,0.5)">avg {{ "%.1f"|format(teams.colours_avg) }}</text>
+            <text x="250" y="710" text-anchor="middle" font-family="'Bebas Neue',Arial" font-size="17" font-weight="bold" fill="rgba(255,255,255,0.9)">🔴 COLOURS</text>
+            <text x="250" y="726" text-anchor="middle" font-family="Arial" font-size="11" fill="rgba(255,255,255,0.5)">avg {{ "%.1f"|format(teams.colours_avg) }}</text>
 
             {% set col_fwd = teams.colours | selectattr('position', 'eq', 'FWD') | list %}
             {% set col_mid = teams.colours | selectattr('position', 'eq', 'MID') | list %}
             {% set col_def = teams.colours | selectattr('position', 'eq', 'DEF') | list %}
             {% for p in col_fwd %}
-            <circle cx="250" cy="436" r="26" fill="#DC3545" stroke="white" stroke-width="2"/>
-            <text x="250" y="433" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="white">{{ p.name }}</text>
-            <text x="250" y="446" text-anchor="middle" font-family="Arial" font-size="8" fill="rgba(255,255,255,0.8)">FWD</text>
+            <circle cx="250" cy="436" r="30" fill="#DC3545" stroke="white" stroke-width="2.5"/>
+            <text x="250" y="434" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="white">{{ p.name }}</text>
+            <text x="250" y="448" text-anchor="middle" font-family="Arial" font-size="9" fill="rgba(255,255,255,0.8)">FWD</text>
+            {{ form_dots(250, 436, p.name) }}
             {% endfor %}
             {% for p in col_mid %}
             {% set cx = mid_xs[loop.index0] %}
-            <circle cx="{{ cx }}" cy="526" r="26" fill="#DC3545" stroke="white" stroke-width="2"/>
-            <text x="{{ cx }}" y="523" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="white">{{ p.name }}</text>
-            <text x="{{ cx }}" y="536" text-anchor="middle" font-family="Arial" font-size="8" fill="rgba(255,255,255,0.8)">MID</text>
+            <circle cx="{{ cx }}" cy="526" r="30" fill="#DC3545" stroke="white" stroke-width="2.5"/>
+            <text x="{{ cx }}" y="524" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="white">{{ p.name }}</text>
+            <text x="{{ cx }}" y="538" text-anchor="middle" font-family="Arial" font-size="9" fill="rgba(255,255,255,0.8)">MID</text>
+            {{ form_dots(cx, 526, p.name) }}
             {% endfor %}
             {% for p in col_def %}
             {% set cx = def_xs[loop.index0] %}
-            <circle cx="{{ cx }}" cy="612" r="26" fill="#DC3545" stroke="white" stroke-width="2"/>
-            <text x="{{ cx }}" y="609" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="white">{{ p.name }}</text>
-            <text x="{{ cx }}" y="622" text-anchor="middle" font-family="Arial" font-size="8" fill="rgba(255,255,255,0.8)">DEF</text>
+            <circle cx="{{ cx }}" cy="612" r="30" fill="#DC3545" stroke="white" stroke-width="2.5"/>
+            <text x="{{ cx }}" y="610" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="white">{{ p.name }}</text>
+            <text x="{{ cx }}" y="624" text-anchor="middle" font-family="Arial" font-size="9" fill="rgba(255,255,255,0.8)">DEF</text>
+            {{ form_dots(cx, 612, p.name) }}
             {% endfor %}
         </svg>
         </div>
@@ -331,6 +391,36 @@
             {% endfor %}
             <button type="submit" class="btn btn-regen">🔄 Regenerate Teams</button>
         </form>
+
+        {% if config.DEBUG and streak_debug %}
+        <div class="debug-panel">
+            <p class="section-title">🐞 Form Adjustment Debug (DEBUG=True only)</p>
+            <table class="debug-table">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Wins (last 5)</th>
+                        <th>Losses (last 5)</th>
+                        <th>Adjustment</th>
+                        <th>Base DEF → Adj DEF</th>
+                        <th>Base ATT → Adj ATT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in streak_debug %}
+                    <tr>
+                        <td>{{ d.name }}</td>
+                        <td>{{ d.wins }}</td>
+                        <td>{{ d.losses }}</td>
+                        <td>{{ "%+.0f%%"|format(d.streak_pct * 100) }}</td>
+                        <td>{{ "%.2f"|format(d.base_defender) }} → {{ "%.2f"|format(d.adjusted_defender) }}</td>
+                        <td>{{ "%.2f"|format(d.base_attacker) }} → {{ "%.2f"|format(d.adjusted_attacker) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
         {% endif %}
     </main>
 
