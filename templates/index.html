@@ -33,6 +33,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            position: relative;
         }
 
         header h1 {
@@ -50,6 +51,54 @@
             transition: color .2s;
         }
         header nav a:hover { color: var(--text); }
+        header nav a.active { color: var(--bibs); font-weight: 600; }
+
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            gap: 5px;
+            width: 30px;
+            height: 30px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+        }
+        .hamburger span {
+            display: block;
+            height: 2px;
+            width: 100%;
+            background: var(--text);
+            border-radius: 2px;
+            transition: transform .2s ease, opacity .2s ease;
+        }
+        .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .hamburger.open span:nth-child(2) { opacity: 0; }
+        .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        @media (max-width: 720px) {
+            .hamburger { display: flex; }
+            header nav {
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                flex-direction: column;
+                background: var(--card);
+                border-bottom: 2px solid var(--green);
+                padding: 8px 0;
+                z-index: 50;
+            }
+            header nav.open { display: flex; }
+            header nav a {
+                margin-left: 0;
+                padding: 12px 24px;
+                border-top: 1px solid var(--border);
+            }
+            header nav a:first-child { border-top: none; }
+        }
 
         main { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
 
@@ -155,12 +204,13 @@
     <header>
         <h1>⚽ TNF</h1>
         <nav>
-            <a href="/team_picker">Team Picker</a>
-            <a href="/rate">Rate</a>
-            <a href="/results">Ratings</a>
-            <a href="/standings">Standings</a>
-            <a href="/admin">Admin</a>
+            <a href="/team_picker" class="{{ 'active' if request.path in ['/team_picker', '/generate_teams', '/confirm_teams'] else '' }}">Team Picker</a>
+            <a href="/rate" class="{{ 'active' if request.path.startswith('/rate') or request.path.startswith('/submit_rating') or request.path.startswith('/thank_you') else '' }}">Rate</a>
+            <a href="/results" class="{{ 'active' if request.path == '/results' else '' }}">Ratings</a>
+            <a href="/standings" class="{{ 'active' if request.path == '/standings' else '' }}">Standings</a>
+            <a href="/admin" class="{{ 'active' if request.path.startswith('/admin') else '' }}">Admin</a>
         </nav>
+        <button class="hamburger" onclick="toggleNav(this)" aria-label="Toggle menu"><span></span><span></span><span></span></button>
     </header>
 
     <main>
@@ -206,5 +256,13 @@
         </div>
         {% endif %}
     </main>
+
+    <script>
+        function toggleNav(btn) {
+            const nav = btn.parentElement.querySelector('nav');
+            nav.classList.toggle('open');
+            btn.classList.toggle('open');
+        }
+    </script>
 </body>
 </html>
