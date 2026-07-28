@@ -1,75 +1,133 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Rating Submitted</title>
+    <title>Rating Submitted — TNF</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 100px auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-            text-align: center;
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --green:   #1a7a2e;
+            --green-l: #2d9e45;
+            --bibs:    #f5c518;
+            --colours: #dc3545;
+            --bg:      #0f1a12;
+            --card:    #1a2b1e;
+            --border:  #2a3d2e;
+            --text:    #e8f0e9;
+            --muted:   #7a9a7e;
         }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        header {
+            background: linear-gradient(135deg, #0a1a0d 0%, #1a3020 100%);
+            border-bottom: 2px solid var(--green);
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        header h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem;
+            letter-spacing: 3px;
+            color: var(--bibs);
+        }
+
+        header nav a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.85rem;
+            margin-left: 20px;
+            transition: color .2s;
+        }
+        header nav a:hover { color: var(--text); }
+
+        main {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 80px 20px;
+        }
+
         .success-box {
-            background: white;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 40px 36px;
+            text-align: center;
         }
         .checkmark {
             font-size: 60px;
-            color: #28a745;
+            color: #4caf50;
             margin-bottom: 20px;
         }
-        h1 {
-            color: #333;
+        .success-box h2 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.8rem;
+            letter-spacing: 2px;
+            color: var(--bibs);
             margin-bottom: 10px;
         }
-        p {
-            color: #666;
-            font-size: 18px;
-            margin-bottom: 30px;
+        .success-box p {
+            color: var(--muted);
+            font-size: 1rem;
+            margin-bottom: 28px;
         }
         .buttons {
             display: flex;
-            gap: 15px;
+            gap: 14px;
             justify-content: center;
+            flex-wrap: wrap;
         }
-        a {
+        .buttons a {
             display: inline-block;
-            padding: 12px 24px;
+            padding: 12px 22px;
             text-decoration: none;
-            border-radius: 4px;
-            font-size: 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: background .2s, opacity .2s;
         }
-        .btn-primary {
-            background-color: #007bff;
-            color: white;
-        }
-        .btn-primary:hover {
-            background-color: #0056b3;
-        }
+        .btn-primary { background: var(--green-l); color: white; }
+        .btn-primary:hover { background: var(--green); }
         .btn-secondary {
-            background-color: #6c757d;
-            color: white;
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
         }
-        .btn-secondary:hover {
-            background-color: #545b62;
-        }
+        .btn-secondary:hover { border-color: var(--green-l); }
     </style>
 </head>
 <body>
-    <div class="success-box">
-        <div class="checkmark">✓</div>
-        <h1>Rating Submitted!</h1>
-        <p>Thank you for rating {{ player[1] }}</p>
-        
-        <div class="buttons">
-            <a href="/" class="btn-primary">Rate Another Player</a>
-            <a href="/results" class="btn-secondary">View Results</a>
+    <header>
+        <h1>⚽ TNF</h1>
+        <nav>
+            <a href="/team_picker">Team Picker</a>
+            <a href="/rate">Rate</a>
+            <a href="/results">Ratings</a>
+            <a href="/admin">Admin</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="success-box">
+            <div class="checkmark">✓</div>
+            <h2>Rating Submitted!</h2>
+            <p>Thank you for rating {{ player[1] }}</p>
+
+            <div class="buttons">
+                <a href="/rate" class="btn-primary">Rate Another Player</a>
+                <a href="/results" class="btn-secondary">View Results</a>
+            </div>
         </div>
-    </div>
+    </main>
 </body>
 </html>

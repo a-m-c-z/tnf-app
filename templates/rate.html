@@ -1,163 +1,233 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Rate {{ player[1] }}</title>
+    <title>Rate {{ player[1] }} — TNF</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --green:   #1a7a2e;
+            --green-l: #2d9e45;
+            --bibs:    #f5c518;
+            --colours: #dc3545;
+            --bg:      #0f1a12;
+            --card:    #1a2b1e;
+            --border:  #2a3d2e;
+            --text:    #e8f0e9;
+            --muted:   #7a9a7e;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: #f5f5f5;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
         }
-        h1 {
-            color: #333;
-            text-align: center;
-        }
-        .back-link {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: #007bff;
-            text-decoration: none;
-        }
-        .back-link:hover {
-            text-decoration: underline;
-        }
-        form {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: bold;
-        }
-        input[type="text"],
-        input[type="number"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-size: 16px;
-        }
-        input[type="number"] {
-            width: 80px;
-        }
-        .rating-group {
+
+        header {
+            background: linear-gradient(135deg, #0a1a0d 0%, #1a3020 100%);
+            border-bottom: 2px solid var(--green);
+            padding: 18px 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
+
+        header h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem;
+            letter-spacing: 3px;
+            color: var(--bibs);
+        }
+
+        header nav a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.85rem;
+            margin-left: 20px;
+            transition: color .2s;
+        }
+        header nav a:hover { color: var(--text); }
+
+        main { max-width: 600px; margin: 0 auto; padding: 28px 20px 60px; }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.85rem;
+        }
+        .back-link:hover { color: var(--text); }
+
+        .section-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.6rem;
+            letter-spacing: 2px;
+            color: var(--green-l);
+            margin-bottom: 20px;
+        }
+
+        .info {
+            background: rgba(45,158,69,0.12);
+            border-left: 4px solid var(--green-l);
+            color: var(--muted);
+            padding: 14px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        .warning-box {
+            background: rgba(245,197,24,0.12);
+            border-left: 4px solid var(--bibs);
+            color: var(--text);
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .warning-box strong { color: var(--bibs); }
+        .warning-box a { color: var(--green-l); }
+
+        .rating-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .form-group { margin-bottom: 18px; }
+        .rating-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
         .rating-group label {
-            margin-bottom: 0;
+            color: var(--text);
+            font-weight: 600;
+            font-size: 0.9rem;
             flex: 1;
         }
-        button {
+        .rating-group input[type="number"] {
+            width: 80px;
+            padding: 10px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+            text-align: center;
+        }
+        .rating-group input[type="number"]:focus { border-color: var(--green-l); }
+
+        .btn {
+            display: block;
             width: 100%;
-            padding: 12px;
-            background-color: #28a745;
-            color: white;
+            padding: 14px;
             border: none;
-            border-radius: 4px;
-            font-size: 16px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
-            margin-top: 10px;
+            background: var(--green-l);
+            color: white;
+            margin-top: 8px;
+            transition: background .2s;
         }
-        button:hover {
-            background-color: #218838;
-        }
-        .info {
-            background-color: #e7f3ff;
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            border-left: 4px solid #007bff;
-        }
+        .btn:hover { background: var(--green); }
     </style>
 </head>
 <body>
-    <a href="/" class="back-link">← Back to all players</a>
-    
-    <h1>Rate {{ player[1] }}</h1>
+    <header>
+        <h1>⚽ TNF</h1>
+        <nav>
+            <a href="/team_picker">Team Picker</a>
+            <a href="/rate">Rate</a>
+            <a href="/results">Ratings</a>
+            <a href="/admin">Admin</a>
+        </nav>
+    </header>
 
-    {% if already_rated %}
-    <div style="background-color: #fff3cd; padding: 20px; border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
-        <strong>⚠️ Already Rated</strong>
-        <p>You have already rated this player from this browser. You can only rate each player once.</p>
-        <a href="/" style="color: #007bff; text-decoration: underline;">← Back to all players</a>
-    </div>
-    {% else %}
-    <div class="info">
-        Rate each attribute on a scale of 1-10 (1 = Poor, 10 = Excellent)
-    </div>
+    <main>
+        <a href="/rate" class="back-link">← Back to all players</a>
 
-    <form method="POST" action="/submit_rating/{{ player[0] }}">
-        <div class="form-group rating-group">
-            <label for="defensive_workrate">Defensive Workrate:</label>
-            <input type="number" id="defensive_workrate" name="defensive_workrate" 
-                   min="1" max="10" required>
+        <p class="section-title">Rate {{ player[1] }}</p>
+
+        {% if already_rated %}
+        <div class="warning-box">
+            <strong>⚠️ Already Rated</strong>
+            <p style="margin-top: 8px;">You have already rated this player from this browser. You can only rate each player once.</p>
+            <a href="/rate" style="display:inline-block; margin-top: 10px;">← Back to all players</a>
+        </div>
+        {% else %}
+        <div class="info">
+            Rate each attribute on a scale of 1-10 (1 = Poor, 10 = Excellent)
         </div>
 
-        <div class="form-group rating-group">
-            <label for="attacking_workrate">Attacking Workrate:</label>
-            <input type="number" id="attacking_workrate" name="attacking_workrate" 
-                   min="1" max="10" required>
+        <div class="rating-card">
+            <form method="POST" action="/submit_rating/{{ player[0] }}">
+                <div class="form-group rating-group">
+                    <label for="defensive_workrate">Defensive Workrate</label>
+                    <input type="number" id="defensive_workrate" name="defensive_workrate"
+                           min="1" max="10" required>
+                </div>
+
+                <div class="form-group rating-group">
+                    <label for="attacking_workrate">Attacking Workrate</label>
+                    <input type="number" id="attacking_workrate" name="attacking_workrate"
+                           min="1" max="10" required>
+                </div>
+
+                <div class="form-group rating-group">
+                    <label for="fitness">Fitness</label>
+                    <input type="number" id="fitness" name="fitness"
+                           min="1" max="10" required>
+                </div>
+
+                <div class="form-group rating-group">
+                    <label for="passing_possession">Passing & Possession</label>
+                    <input type="number" id="passing_possession" name="passing_possession"
+                           min="1" max="10" required>
+                </div>
+
+                <div class="form-group rating-group">
+                    <label for="defending_tackles">Defending & Tackles</label>
+                    <input type="number" id="defending_tackles" name="defending_tackles"
+                           min="1" max="10" required>
+                </div>
+
+                <div class="form-group rating-group">
+                    <label for="shooting">Shooting</label>
+                    <input type="number" id="shooting" name="shooting"
+                           min="1" max="10" required>
+                </div>
+
+                <div class="form-group rating-group">
+                    <label for="physicality">Physicality</label>
+                    <input type="number" id="physicality" name="physicality"
+                           min="1" max="10" required>
+                </div>
+
+                <div class="form-group rating-group">
+                    <label for="pace">Pace</label>
+                    <input type="number" id="pace" name="pace"
+                           min="1" max="10" required>
+                </div>
+
+                <div class="form-group rating-group">
+                    <label for="goalkeeping">Goalkeeping</label>
+                    <input type="number" id="goalkeeping" name="goalkeeping"
+                           min="1" max="10" required>
+                </div>
+
+                <button type="submit" class="btn">Submit Rating</button>
+            </form>
         </div>
-
-        <div class="form-group rating-group">
-            <label for="fitness">Fitness:</label>
-            <input type="number" id="fitness" name="fitness" 
-                   min="1" max="10" required>
-        </div>
-
-        <div class="form-group rating-group">
-            <label for="passing_possession">Passing & Possession:</label>
-            <input type="number" id="passing_possession" name="passing_possession" 
-                   min="1" max="10" required>
-        </div>
-
-        <div class="form-group rating-group">
-            <label for="defending_tackles">Defending & Tackles:</label>
-            <input type="number" id="defending_tackles" name="defending_tackles" 
-                   min="1" max="10" required>
-        </div>
-
-        <div class="form-group rating-group">
-            <label for="shooting">Shooting:</label>
-            <input type="number" id="shooting" name="shooting" 
-                   min="1" max="10" required>
-        </div>
-
-        <div class="form-group rating-group">
-            <label for="physicality">Physicality:</label>
-            <input type="number" id="physicality" name="physicality" 
-                   min="1" max="10" required>
-        </div>
-
-        <div class="form-group rating-group">
-            <label for="pace">Pace:</label>
-            <input type="number" id="pace" name="pace" 
-                   min="1" max="10" required>
-        </div>
-
-        <div class="form-group rating-group">
-            <label for="goalkeeping">Goalkeeping:</label>
-            <input type="number" id="goalkeeping" name="goalkeeping" 
-                   min="1" max="10" required>
-        </div>
-
-        <button type="submit">Submit Rating</button>
-    </form>
-
-    {% endif %}
-
+        {% endif %}
+    </main>
 </body>
 </html>
