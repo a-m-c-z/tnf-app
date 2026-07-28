@@ -572,7 +572,14 @@
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <!-- html2canvas-pro (not the original html2canvas) — the original crashes on iOS/Safari
+         WebKit browsers with "unsupported color function" when the UA computes colours as
+         oklch()/lab(), which html2canvas-pro understands. Loaded as an ES module and exposed
+         as window.html2canvas so the rest of the page can keep using the plain global call. -->
+    <script type="module">
+        import html2canvas from 'https://cdn.jsdelivr.net/npm/html2canvas-pro@2.3.2/dist/html2canvas-pro.esm.min.js';
+        window.html2canvas = html2canvas;
+    </script>
     <script>
         function toggleNav(btn) {
             const nav = btn.parentElement.querySelector('nav');
