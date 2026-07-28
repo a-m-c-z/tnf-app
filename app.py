@@ -189,6 +189,7 @@ def generate_teams():
     averages = database.get_average_ratings_filtered(filter_outliers=True)
     player_data = []
     form_by_name = {}
+    streak_debug = []
     for player_id_str in selected_player_ids:
         player_id  = int(player_id_str)
         player     = database.get_player_by_id(player_id)
@@ -206,15 +207,33 @@ def generate_teams():
         else:
             defender_rating = attacker_rating = overall_rating = 5.0
 
-        # Factor in recent form: a player on a good/bad run of their last 5
-        # games nudges their rating slightly (up to +/-0.5), without changing
-        # the def/att balance used for position assignment.
+        base_defender_rating = defender_rating
+        base_attacker_rating = attacker_rating
+
+        # Factor in recent hot/cold streaks: a player on a 3+ game win streak
+        # gets their rating inflated (10%/15%/20% for a 3/4/5-game streak),
+        # and a player on a 3+ game losing streak gets the same deflation.
         form_summary = database.get_player_form_summary(player[1], limit=5)
         form_by_name[player[1]] = form_summary
-        if form_summary['games'] >= 3:
-            form_bonus = (form_summary['win_pct'] - 50) / 100.0
-            defender_rating += form_bonus
-            attacker_rating += form_bonus
+        streak_pct = 0.0
+        if form_summary['win_streak'] >= 3:
+            streak_pct = streak_multiplier(form_summary['win_streak'])
+        elif form_summary['loss_streak'] >= 3:
+            streak_pct = -streak_multiplier(form_summary['loss_streak'])
+        if streak_pct:
+            defender_rating *= (1 + streak_pct)
+            attacker_rating *= (1 + streak_pct)
+
+        streak_debug.append({
+            'name': player[1],
+            'win_streak': form_summary['win_streak'],
+            'loss_streak': form_summary['loss_streak'],
+            'streak_pct': streak_pct,
+            'base_defender': base_defender_rating,
+            'base_attacker': base_attacker_rating,
+            'adjusted_defender': defender_rating,
+            'adjusted_attacker': attacker_rating,
+        })
 
         player_data.append({
             'id': player_id,
@@ -236,7 +255,8 @@ def generate_teams():
     return render_template('team_picker.html',
                            players=players, teams=teams, error=None,
                            gameweek_key=gw_key, existing=None,
-                           player_forms=form_by_name)
+                           player_forms=form_by_name,
+                           streak_debug=streak_debug)
 
 
 @app.route('/confirm_teams', methods=['POST'])
@@ -351,6 +371,15 @@ def add_gameweek():
 
 # ── ILP helpers ───────────────────────────────────────────────────────────────
 
+def streak_multiplier(streak_length):
+    """Rating adjustment magnitude for a 3+ game hot/cold streak."""
+    if streak_length >= 5:
+        return 0.20
+    if streak_length == 4:
+        return 0.15
+    return 0.10  # streak_length == 3
+
+
 def balance_teams_ilp(players):
     n    = len(players)
     prob = LpProblem("Team_Balancing", LpMinimize)
@@ -404,4 +433,4 @@ def assign_positions(players):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000)

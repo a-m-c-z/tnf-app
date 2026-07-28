@@ -241,12 +241,27 @@ def get_player_form(player_name, limit=5):
 
 
 def get_player_form_summary(player_name, limit=5):
-    """Return the recent-form list plus a W/D/L breakdown and win %."""
+    """Return the recent-form list plus a W/D/L breakdown, win %, and current win streak."""
     form = get_player_form(player_name, limit)
     wins   = sum(1 for g in form if g['result'] == 'W')
     draws  = sum(1 for g in form if g['result'] == 'D')
     losses = sum(1 for g in form if g['result'] == 'L')
     games  = len(form)
+
+    win_streak = 0
+    for g in reversed(form):
+        if g['result'] == 'W':
+            win_streak += 1
+        else:
+            break
+
+    loss_streak = 0
+    for g in reversed(form):
+        if g['result'] == 'L':
+            loss_streak += 1
+        else:
+            break
+
     return {
         'form': form,
         'games': games,
@@ -254,6 +269,8 @@ def get_player_form_summary(player_name, limit=5):
         'draws': draws,
         'losses': losses,
         'win_pct': round(wins / games * 100, 1) if games else None,
+        'win_streak': win_streak,
+        'loss_streak': loss_streak,
     }
 
 
