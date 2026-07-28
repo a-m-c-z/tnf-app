@@ -12,10 +12,22 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-me')
 
 # ── Config ────────────────────────────────────────────────────────────────────
-SHOW_RESULTS   = True
-MIN_RATINGS_TO_VIEW = 0
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
-RATINGS_LOCKED = True  # flip to False to re-open the rate page to players
+
+# Ratings-lock / results-visibility settings are stored in the database so
+# they can be changed live from the admin page without a code deploy/restart.
+
+def get_ratings_locked():
+    return database.get_setting('ratings_locked', '1') == '1'
+
+
+def get_show_results():
+    return database.get_setting('show_results', '1') == '1'
+
+
+def get_min_ratings_to_view():
+    return int(database.get_setting('min_ratings_to_view', '0'))
+
 
 PLAYERS = [
     'Alex', 'Gibbo', 'Paolo', 'Laff', 'Fenton', 'Jonny', 'Tom', 'Ed',
@@ -76,25 +88,26 @@ def index():
 
 @app.route('/rate')
 def rate_index():
-    if RATINGS_LOCKED:
+    if get_ratings_locked():
         return render_template('index.html', locked=True, players=[], rated_players=[],
                                show_results=False, ratings_count=0,
-                               min_required=MIN_RATINGS_TO_VIEW, progress_percent=0)
+                               min_required=get_min_ratings_to_view(), progress_percent=0)
     players = [p for p in database.get_players() if p[1] not in database.GUEST_NAMES]
     random.shuffle(players)
     rated_players = json.loads(request.cookies.get('rated_players', '[]'))
-    can_view_results = SHOW_RESULTS and len(rated_players) >= MIN_RATINGS_TO_VIEW
-    progress_percent = int((len(rated_players) / MIN_RATINGS_TO_VIEW * 100)) if MIN_RATINGS_TO_VIEW > 0 else 100
+    min_required = get_min_ratings_to_view()
+    can_view_results = get_show_results() and len(rated_players) >= min_required
+    progress_percent = int((len(rated_players) / min_required * 100)) if min_required > 0 else 100
     return render_template('index.html', locked=False, players=players, rated_players=rated_players,
                            show_results=can_view_results,
                            ratings_count=len(rated_players),
-                           min_required=MIN_RATINGS_TO_VIEW,
+                           min_required=min_required,
                            progress_percent=progress_percent)
 
 
 @app.route('/rate/<int:player_id>')
 def rate_player(player_id):
-    if RATINGS_LOCKED:
+    if get_ratings_locked():
         return redirect(url_for('rate_index'))
     player = database.get_player_by_id(player_id)
     if not player:
@@ -106,7 +119,7 @@ def rate_player(player_id):
 
 @app.route('/submit_rating/<int:player_id>', methods=['POST'])
 def submit_rating(player_id):
-    if RATINGS_LOCKED:
+    if get_ratings_locked():
         return "Sorry, you are unable to rate players at the moment.", 403
     rated_players = json.loads(request.cookies.get('rated_players', '[]'))
     if player_id in rated_players:
@@ -136,22 +149,33 @@ def submit_rating(player_id):
 def thank_you(player_id):
     player = database.get_player_by_id(player_id)
     rated_players = json.loads(request.cookies.get('rated_players', '[]'))
-    can_view_results = SHOW_RESULTS and len(rated_players) >= MIN_RATINGS_TO_VIEW
+    min_required = get_min_ratings_to_view()
+    can_view_results = get_show_results() and len(rated_players) >= min_required
     return render_template('thank_you.html', player=player,
                            show_results=can_view_results,
                            ratings_count=len(rated_players),
-                           min_required=MIN_RATINGS_TO_VIEW)
+                           min_required=min_required)
 
 
 @app.route('/results')
 def results():
-    if not SHOW_RESULTS:
-        return "<h1>Results hidden</h1>", 403
     rated_players = json.loads(request.cookies.get('rated_players', '[]'))
-    if len(rated_players) < MIN_RATINGS_TO_VIEW:
-        return redirect(url_for('rate_index'))
+    min_required = get_min_ratings_to_view()
+
+    if not get_show_results():
+        return render_template('results.html', locked=True, reason='admin',
+                               averages=[], ratings_count=len(rated_players),
+                               min_required=min_required, progress_percent=0)
+
+    if len(rated_players) < min_required:
+        progress_percent = int(len(rated_players) / min_required * 100) if min_required > 0 else 100
+        return render_template('results.html', locked=True, reason='progress',
+                               averages=[], ratings_count=len(rated_players),
+                               min_required=min_required, progress_percent=progress_percent)
+
     averages = database.get_average_ratings_filtered(filter_outliers=True)
-    return render_template('results.html', averages=averages)
+    averages = [a for a in averages if a[0] not in database.GUEST_NAMES]
+    return render_template('results.html', locked=False, averages=averages)
 
 
 @app.route('/player/<int:player_id>')
@@ -329,7 +353,24 @@ def admin():
                            gameweeks=gw_this_year,
                            all_players=all_players,
                            year=year,
-                           current_gw=current_gw)
+                           current_gw=current_gw,
+                           ratings_locked=get_ratings_locked(),
+                           show_results=get_show_results(),
+                           min_ratings_to_view=get_min_ratings_to_view())
+
+
+@app.route('/admin/update_settings', methods=['POST'])
+@admin_required
+def admin_update_settings():
+    """Update the live rate-page lock / results-page lock / min-ratings-to-unlock settings."""
+    database.set_setting('ratings_locked', '1' if request.form.get('rate_locked') == 'on' else '0')
+    database.set_setting('show_results', '0' if request.form.get('results_locked') == 'on' else '1')
+    try:
+        min_ratings = max(0, int(request.form.get('min_ratings_to_view', '0')))
+    except ValueError:
+        min_ratings = 0
+    database.set_setting('min_ratings_to_view', str(min_ratings))
+    return redirect(url_for('admin'))
 
 
 @app.route('/admin/save_result', methods=['POST'])
@@ -486,4 +527,4 @@ def assign_positions(players):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000)

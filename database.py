@@ -54,6 +54,11 @@ def init_db():
                   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                   FOREIGN KEY (motm_player_id) REFERENCES players(id))''')
 
+    # Simple key/value store for admin-editable settings (ratings lock, etc.)
+    c.execute('''CREATE TABLE IF NOT EXISTS settings
+                 (key TEXT PRIMARY KEY,
+                  value TEXT)''')
+
     conn.commit()
     conn.close()
 
@@ -75,6 +80,26 @@ def reset_ratings():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("DELETE FROM ratings")
+    conn.commit()
+    conn.close()
+
+
+def get_setting(key, default=None):
+    """Return the stored string value for an admin setting, or `default` if unset."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT value FROM settings WHERE key = ?", (key,))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row is not None else default
+
+
+def set_setting(key, value):
+    """Create or update an admin setting (value is stored as text)."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''INSERT INTO settings (key, value) VALUES (?, ?)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value''', (key, str(value)))
     conn.commit()
     conn.close()
 

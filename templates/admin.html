@@ -281,6 +281,63 @@
         .btn-restore:hover { filter: brightness(0.9); }
         .btn-reset   { background: transparent; color: var(--colours); border: 1px solid var(--colours); }
         .btn-reset:hover   { background: var(--colours); color: white; }
+
+        .settings-form {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            align-items: flex-end;
+        }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        .toggle-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--colours);
+            cursor: pointer;
+        }
+        .toggle-row .toggle-hint {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+        .toggle-col { display: flex; flex-direction: column; gap: 4px; }
+        .settings-form .field-col label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            display: block;
+            margin-bottom: 4px;
+        }
+        .settings-form .field-col input {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 9px 12px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            width: 90px;
+        }
+        .settings-form button {
+            padding: 9px 20px;
+            background: var(--green-l);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .settings-form button:hover { background: var(--green); }
     </style>
 </head>
 <body>
@@ -297,6 +354,36 @@
 </header>
 
 <main>
+
+    <!-- ── Access Settings ────────────────────────────────── -->
+    <div class="section-title">Access Settings</div>
+
+    <form method="POST" action="/admin/update_settings" class="settings-form">
+        <div class="toggle-col">
+            <label class="toggle-row">
+                <input type="checkbox" name="rate_locked" {% if ratings_locked %}checked{% endif %}>
+                Lock Rate Players page
+            </label>
+            <span class="toggle-hint">When locked, players can't submit new ratings.</span>
+        </div>
+
+        <div class="toggle-col">
+            <label class="toggle-row">
+                <input type="checkbox" name="results_locked" {% if not show_results %}checked{% endif %}>
+                Lock Ratings page
+            </label>
+            <span class="toggle-hint">When locked, the Ratings page is hidden until unlocked.</span>
+        </div>
+
+        <div class="field-col">
+            <label>Ratings needed to unlock Ratings page</label>
+            <input type="number" name="min_ratings_to_view" min="0" value="{{ min_ratings_to_view }}">
+        </div>
+
+        <div>
+            <button type="submit">Save Settings</button>
+        </div>
+    </form>
 
     <!-- ── Add Retrospective Gameweek ────────────────────── -->
     <div class="section-title">Add Retrospective Gameweek</div>

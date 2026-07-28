@@ -67,6 +67,48 @@
         }
         .section-title:first-child { margin-top: 0; }
 
+        /* ── Locked state ── */
+        .progress-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 22px 24px;
+            margin-bottom: 28px;
+            text-align: center;
+        }
+        .progress-box h3 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            color: var(--bibs);
+            margin-bottom: 8px;
+        }
+        .progress-box p { color: var(--muted); margin-bottom: 12px; }
+        .progress-bar-container {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden;
+            height: 26px;
+            margin: 0 auto 12px;
+            max-width: 400px;
+        }
+        .progress-bar {
+            background: var(--green-l);
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: width .3s;
+            min-width: 40px;
+        }
+        .progress-note { color: #4caf50; font-weight: 600; }
+        .progress-box a { color: var(--green-l); font-weight: 600; text-decoration: none; }
+        .progress-box a:hover { text-decoration: underline; }
+
         /* ── Table ── */
         .table-wrap {
             background: var(--card);
@@ -187,6 +229,31 @@
     </header>
 
     <main>
+        {% if locked %}
+        <div class="progress-box">
+            {% if reason == 'admin' %}
+            <h3>🔒 Ratings Locked</h3>
+            <p>Sorry, the ratings page isn't available at the moment.</p>
+            {% else %}
+            <h3>🔒 Ratings Locked</h3>
+            <p>Rate <strong>{{ min_required }}</strong> players to unlock results</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: {{ progress_percent }}%;">
+                    {{ ratings_count }}/{{ min_required }}
+                </div>
+            </div>
+            {% set remaining = min_required - ratings_count %}
+            <p class="progress-note">
+                {% if remaining == 1 %}
+                    Just 1 more to go! 🎉
+                {% else %}
+                    {{ remaining }} more to unlock results!
+                {% endif %}
+            </p>
+            <p style="margin-top:14px;"><a href="/rate">Go rate players →</a></p>
+            {% endif %}
+        </div>
+        {% else %}
         <div class="section-title">Full Ratings Table</div>
 
         <div class="table-wrap">
@@ -284,6 +351,7 @@
                 <canvas id="radarChart"></canvas>
             </div>
         </div>
+        {% endif %}
     </main>
 
 
