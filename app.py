@@ -209,9 +209,29 @@ def team_picker():
     players = database.get_players()
     gw_key  = get_current_gameweek_key()
     existing = database.get_gameweek_teams(gw_key)
+
+    teams = None
+    player_forms = None
+    if existing:
+        bibs, colours = existing['bibs'], existing['colours']
+        name_to_id = {name: player_id for player_id, name in players}
+        teams = {
+            'bibs': bibs,
+            'colours': colours,
+            'bibs_avg':      existing['bibs_avg'],
+            'colours_avg':   existing['colours_avg'],
+            'bibs_def_avg':  sum(p['def_rating'] for p in bibs)    / len(bibs),
+            'colours_def_avg': sum(p['def_rating'] for p in colours) / len(colours),
+            'bibs_att_avg':  sum(p['att_rating'] for p in bibs)    / len(bibs),
+            'colours_att_avg': sum(p['att_rating'] for p in colours) / len(colours),
+            'selected_ids': [str(name_to_id[p['name']]) for p in bibs + colours if p['name'] in name_to_id],
+        }
+        player_forms = {p['name']: database.get_player_form_summary(p['name'], limit=5) for p in bibs + colours}
+
     return render_template('team_picker.html', players=players,
-                           teams=None, error=None,
-                           gameweek_key=gw_key, existing=existing)
+                           teams=teams, error=None,
+                           gameweek_key=gw_key, existing=existing,
+                           player_forms=player_forms)
 
 
 @app.route('/generate_teams', methods=['POST'])

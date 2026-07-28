@@ -199,6 +199,8 @@
         .btn-confirm:hover { opacity: 0.9; }
         .btn-regen   { background: var(--card); color: var(--text); border: 1px solid var(--border); margin-top: 10px; }
         .btn-regen:hover { border-color: var(--green-l); }
+        .btn-share   { background: var(--card); color: var(--text); border: 1px solid var(--border); margin-top: 14px; }
+        .btn-share:hover:not(:disabled) { border-color: var(--bibs); }
 
         /* ── AI Zone ── */
         .ai-panel {
@@ -371,7 +373,7 @@
         </div>
         {% endif %}
 
-        {% if existing and not teams %}
+        {% if existing %}
         <div class="existing-notice">
             <strong>GW {{ gameweek_key }} already has confirmed teams.</strong>
             Generating new teams will let you override them if needed.
@@ -498,6 +500,8 @@
         </svg>
         </div>
 
+        <button type="button" id="shareBtn" class="btn btn-share" onclick="sharePitchImage()">📤 Share Teams</button>
+
         <!-- Confirm Teams form -->
         <form method="POST" action="/confirm_teams">
             <input type="hidden" name="gameweek_key" value="{{ gameweek_key }}">
@@ -527,10 +531,11 @@
                 <button type="button" class="btn-ai" onclick="generateAI('player_comparison')">⚽ Compare to World Cup 2026 Players</button>
             </div>
             <div class="ai-custom">
-                <textarea id="aiCustomPrompt" rows="2" placeholder="Or ask your own novelty question about these teams..."></textarea>
+                <textarea id="aiCustomPrompt" rows="2" placeholder="Or ask your own AI prompts for these teams..."></textarea>
                 <button type="button" class="btn-ai" onclick="generateAI('custom')">🤖 Generate</button>
             </div>
             <div id="aiOutput" class="ai-output" style="display:none;"></div>
+            <button type="button" id="shareAiBtn" class="btn btn-share" style="display:none; margin-top:12px;" onclick="shareAIOutput()">📤 Share Output</button>
         </div>
 
         {% if config.DEBUG and streak_debug %}
@@ -567,6 +572,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script>
         function toggleNav(btn) {
             const nav = btn.parentElement.querySelector('nav');
@@ -598,9 +604,86 @@
             }
         }
 
+        async function sharePitchImage() {
+            const svg = document.querySelector('.pitch-wrapper svg');
+            const shareBtn = document.getElementById('shareBtn');
+            if (!svg || !shareBtn) return;
+
+            const originalLabel = shareBtn.textContent;
+            shareBtn.disabled = true;
+            shareBtn.textContent = 'Preparing image...';
+
+            let svgUrl;
+            try {
+                const vb = svg.viewBox.baseVal;
+                const scale = 2;
+                const clone = svg.cloneNode(true);
+                clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                clone.setAttribute('width', vb.width * scale);
+                clone.setAttribute('height', vb.height * scale);
+
+                // A serialized SVG is rendered as its own standalone document, so it can't
+                // see the page's external stylesheet — embed the classed styles it needs
+                // (e.g. form-dot colours) directly so they still render in the exported image.
+                const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+                style.textContent = `
+                    .form-dot { stroke: rgba(255,255,255,0.55); stroke-width: 1; }
+                    .form-dot.W { fill: #2d9e45; }
+                    .form-dot.D { fill: #9aa3a0; }
+                    .form-dot.L { fill: #dc3545; }
+                `;
+                clone.insertBefore(style, clone.firstChild);
+
+                const svgString = new XMLSerializer().serializeToString(clone);
+                const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+                svgUrl = URL.createObjectURL(svgBlob);
+
+                const img = new Image();
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = () => reject(new Error('Could not render pitch image.'));
+                    img.src = svgUrl;
+                });
+
+                const canvas = document.createElement('canvas');
+                canvas.width = vb.width * scale;
+                canvas.height = vb.height * scale;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#0f1a12';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+                if (!blob) throw new Error('Could not generate image.');
+                const file = new File([blob], 'tnf-teams.jpg', { type: 'image/jpeg' });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ files: [file], title: 'TNF Teams', text: "Tonight's teams 👇" });
+                } else {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'tnf-teams.jpg';
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                }
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    alert('Could not share the image. Please try taking a screenshot instead.');
+                }
+            } finally {
+                if (svgUrl) URL.revokeObjectURL(svgUrl);
+                shareBtn.disabled = false;
+                shareBtn.textContent = originalLabel;
+            }
+        }
+
         async function generateAI(promptType) {
             const output = document.getElementById('aiOutput');
+            const shareAiBtn = document.getElementById('shareAiBtn');
             const customPrompt = document.getElementById('aiCustomPrompt').value.trim();
+
+            shareAiBtn.style.display = 'none';
 
             if (promptType === 'custom' && !customPrompt) {
                 output.style.display = 'block';
@@ -634,9 +717,51 @@
                 } else {
                     output.textContent = data.result;
                 }
+                shareAiBtn.style.display = 'block';
             } catch (err) {
                 output.className = 'ai-output error';
                 output.textContent = 'Network error — please try again.';
+            }
+        }
+
+        async function shareAIOutput() {
+            const output = document.getElementById('aiOutput');
+            const shareBtn = document.getElementById('shareAiBtn');
+            if (!output || !shareBtn || output.style.display === 'none') return;
+
+            const originalLabel = shareBtn.textContent;
+            shareBtn.disabled = true;
+            shareBtn.textContent = 'Preparing image...';
+
+            try {
+                if (!window.html2canvas) throw new Error('Screenshot library not loaded.');
+
+                const canvas = await html2canvas(output, {
+                    backgroundColor: '#0f1a12',
+                    scale: 2,
+                });
+
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+                if (!blob) throw new Error('Could not generate image.');
+                const file = new File([blob], 'tnf-ai-output.jpg', { type: 'image/jpeg' });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ files: [file], title: 'TNF AI Zone', text: 'Check this out 👇' });
+                } else {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'tnf-ai-output.jpg';
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                }
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    alert('Could not share the image. Please try taking a screenshot instead.');
+                }
+            } finally {
+                shareBtn.disabled = false;
+                shareBtn.textContent = originalLabel;
             }
         }
     </script>
