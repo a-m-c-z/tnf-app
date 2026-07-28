@@ -611,6 +611,26 @@
             }
         }
 
+        async function shareOrDownloadImage(blob, filename, shareTitle, shareText) {
+            const file = new File([blob], filename, { type: 'image/jpeg' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({ files: [file], title: shareTitle, text: shareText });
+                    return;
+                } catch (shareErr) {
+                    if (shareErr.name === 'AbortError') return; // user cancelled — don't fall back
+                    // Some browsers (notably Chrome on iOS) report canShare as supported but then
+                    // fail to actually invoke the share sheet — fall back to a manual download.
+                }
+            }
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+
         async function sharePitchImage() {
             const svg = document.querySelector('.pitch-wrapper svg');
             const shareBtn = document.getElementById('shareBtn');
@@ -662,18 +682,8 @@
 
                 const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
                 if (!blob) throw new Error('Could not generate image.');
-                const file = new File([blob], 'tnf-teams.jpg', { type: 'image/jpeg' });
 
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({ files: [file], title: 'TNF Teams', text: "Tonight's teams 👇" });
-                } else {
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = 'tnf-teams.jpg';
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                }
+                await shareOrDownloadImage(blob, 'tnf-teams.jpg', 'TNF Teams', "Tonight's teams 👇");
             } catch (err) {
                 if (err.name !== 'AbortError') {
                     alert('Could not share the image. Please try taking a screenshot instead.');
@@ -750,18 +760,8 @@
 
                 const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
                 if (!blob) throw new Error('Could not generate image.');
-                const file = new File([blob], 'tnf-ai-output.jpg', { type: 'image/jpeg' });
 
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({ files: [file], title: 'TNF AI Zone', text: 'Check this out 👇' });
-                } else {
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = 'tnf-ai-output.jpg';
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                }
+                await shareOrDownloadImage(blob, 'tnf-ai-output.jpg', 'TNF AI Zone', 'Check this out 👇');
             } catch (err) {
                 if (err.name !== 'AbortError') {
                     alert('Could not share the image. Please try taking a screenshot instead.');
