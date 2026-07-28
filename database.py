@@ -202,6 +202,61 @@ def get_player_ratings(player_id):
     return results
 
 
+def _parse_gw_key(gameweek_key):
+    """'14-2026' -> (2026, 14), used for correct chronological sorting."""
+    gw_number, year = gameweek_key.split('-')
+    return (int(year), int(gw_number))
+
+
+def get_player_form(player_name, limit=5):
+    """
+    Return a player's most recent completed games (across all seasons),
+    oldest first, as a list of {'gameweek_key', 'result': 'W'/'D'/'L'}.
+    """
+    import json
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''SELECT gt.gameweek_key, gt.bibs_players, gt.colours_players, gr.result
+                 FROM gameweek_teams gt
+                 JOIN gameweek_results gr ON gt.gameweek_key = gr.gameweek_key
+                 WHERE gr.result IS NOT NULL''')
+    rows = c.fetchall()
+    conn.close()
+
+    games = []
+    for gw_key, bibs_json, colours_json, result in rows:
+        bibs_names = [p['name'] for p in json.loads(bibs_json)]
+        colours_names = [p['name'] for p in json.loads(colours_json)]
+        if player_name in bibs_names:
+            outcome = 'W' if result == 'bibs_win' else ('D' if result == 'draw' else 'L')
+        elif player_name in colours_names:
+            outcome = 'W' if result == 'colours_win' else ('D' if result == 'draw' else 'L')
+        else:
+            continue
+        games.append((_parse_gw_key(gw_key), gw_key, outcome))
+
+    games.sort(key=lambda g: g[0])
+    recent = games[-limit:]
+    return [{'gameweek_key': gw_key, 'result': outcome} for _, gw_key, outcome in recent]
+
+
+def get_player_form_summary(player_name, limit=5):
+    """Return the recent-form list plus a W/D/L breakdown and win %."""
+    form = get_player_form(player_name, limit)
+    wins   = sum(1 for g in form if g['result'] == 'W')
+    draws  = sum(1 for g in form if g['result'] == 'D')
+    losses = sum(1 for g in form if g['result'] == 'L')
+    games  = len(form)
+    return {
+        'form': form,
+        'games': games,
+        'wins': wins,
+        'draws': draws,
+        'losses': losses,
+        'win_pct': round(wins / games * 100, 1) if games else None,
+    }
+
+
 # ── Gameweek helpers ──────────────────────────────────────────────────────────
 
 def save_gameweek_teams(gameweek_key, bibs, colours, bibs_avg, colours_avg):

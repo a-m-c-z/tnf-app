@@ -188,6 +188,7 @@ def generate_teams():
 
     averages = database.get_average_ratings_filtered(filter_outliers=True)
     player_data = []
+    form_by_name = {}
     for player_id_str in selected_player_ids:
         player_id  = int(player_id_str)
         player     = database.get_player_by_id(player_id)
@@ -204,6 +205,16 @@ def generate_teams():
             overall_rating = sum(all_attrs) / len(all_attrs) if all_attrs else 5.0
         else:
             defender_rating = attacker_rating = overall_rating = 5.0
+
+        # Factor in recent form: a player on a good/bad run of their last 5
+        # games nudges their rating slightly (up to +/-0.5), without changing
+        # the def/att balance used for position assignment.
+        form_summary = database.get_player_form_summary(player[1], limit=5)
+        form_by_name[player[1]] = form_summary
+        if form_summary['games'] >= 3:
+            form_bonus = (form_summary['win_pct'] - 50) / 100.0
+            defender_rating += form_bonus
+            attacker_rating += form_bonus
 
         player_data.append({
             'id': player_id,
@@ -224,7 +235,8 @@ def generate_teams():
     players = database.get_players()
     return render_template('team_picker.html',
                            players=players, teams=teams, error=None,
-                           gameweek_key=gw_key, existing=None)
+                           gameweek_key=gw_key, existing=None,
+                           player_forms=form_by_name)
 
 
 @app.route('/confirm_teams', methods=['POST'])
