@@ -34,6 +34,13 @@ def get_min_ratings_to_view():
     return int(database.get_setting('min_ratings_to_view', '0'))
 
 
+def get_ai_debug_mode():
+    """When on, the AI Zone returns canned/offline responses instead of calling Gemini
+    (even if a real GEMINI_API_KEY is configured) — lets us test the UI/sharing flow
+    on any deployment without burning real API quota."""
+    return database.get_setting('ai_debug_mode', '0') == '1'
+
+
 PLAYERS = [
     'Alex', 'Gibbo', 'Paolo', 'Laff', 'Fenton', 'Jonny', 'Tom', 'Ed',
     'Scott', 'Kev', 'Adam', 'Ilya', 'Shaun', 'Luke', 'Kieran', 'Farrar',
@@ -381,7 +388,8 @@ def admin():
                            current_gw=current_gw,
                            ratings_locked=get_ratings_locked(),
                            show_results=get_show_results(),
-                           min_ratings_to_view=get_min_ratings_to_view())
+                           min_ratings_to_view=get_min_ratings_to_view(),
+                           ai_debug_mode=get_ai_debug_mode())
 
 
 @app.route('/admin/update_settings', methods=['POST'])
@@ -390,6 +398,7 @@ def admin_update_settings():
     """Update the live rate-page lock / results-page lock / min-ratings-to-unlock settings."""
     database.set_setting('ratings_locked', '1' if request.form.get('rate_locked') == 'on' else '0')
     database.set_setting('show_results', '0' if request.form.get('results_locked') == 'on' else '1')
+    database.set_setting('ai_debug_mode', '1' if request.form.get('ai_debug_mode') == 'on' else '0')
     try:
         min_ratings = max(0, int(request.form.get('min_ratings_to_view', '0')))
     except ValueError:
@@ -656,7 +665,7 @@ _CANNED_WC2026_COMPARISONS = [
 def build_canned_player_comparison(bibs, colours):
     """Deterministic, offline stand-in for the Gemini player-comparison response.
 
-    Used in local dev (when GEMINI_API_KEY isn't set) so we can test the UI and the
+    Used in debug mode (see get_ai_debug_mode) so we can test the UI and the
     share/screenshot flow without burning real API calls.
     """
     pool = _CANNED_WC2026_COMPARISONS
@@ -669,8 +678,37 @@ def build_canned_player_comparison(bibs, colours):
             footballer, blurb = pool[idx]
             lines.append(f"- **{p.get('name', '?')}** — like *{footballer}*: {blurb}.")
         lines.append('')
-    lines.append('_(Canned local-dev response — no Gemini API call made.)_')
+    lines.append('_(Canned debug response — no Gemini API call made.)_')
     return '\n'.join(lines)
+
+
+def build_canned_match_report(bibs, colours):
+    """Deterministic, offline stand-in for the Gemini match-report response (debug mode)."""
+    scorer = bibs[0]['name'] if bibs else 'Someone'
+    blunderer = colours[0]['name'] if colours else 'Someone'
+    standout = colours[-1]['name'] if colours else 'Someone'
+    motm = bibs[-1]['name'] if bibs else 'Someone'
+    return (
+        "### Full-Time: Bibs 11 - 9 Colours\n\n"
+        f"A frantic, end-to-end affair tonight. **{scorer}** ran riot up top for Bibs, poaching a hat-trick "
+        "with clinical finishing, while **" + blunderer + "** endured a nightmare at the back for Colours, "
+        "gifting possession straight to the Bibs attack for one of the game's key goals. "
+        f"**{standout}** was a rock for Colours all night, single-handedly keeping the scoreline respectable "
+        "with a string of last-ditch tackles. "
+        f"**{motm}** was named man of the match for a tireless box-to-box shift that tipped the balance in "
+        "Bibs' favour.\n\n"
+        "_(Canned debug response — no Gemini API call made.)_"
+    )
+
+
+def build_canned_custom_response(custom_prompt):
+    """Deterministic, offline stand-in for a custom-prompt Gemini response (debug mode)."""
+    return (
+        f"You asked: _{custom_prompt}_\n\n"
+        "This is a placeholder reply so the UI, markdown rendering, and sharing flow can be tested "
+        "without making a real Gemini API call.\n\n"
+        "_(Canned debug response — no Gemini API call made.)_"
+    )
 
 
 AI_PROMPT_PRESETS = {
@@ -714,17 +752,24 @@ def generate_ai_content():
     prompt_type = request.form.get('prompt_type', 'custom')
     custom_prompt = (request.form.get('custom_prompt') or '').strip()
 
-    # Local dev fallback: if no Gemini API key is configured, skip the real API
-    # call for the player-comparison preset and return a canned response instead,
-    # so we can test the UI/sharing flow without burning real API quota.
-    if prompt_type == 'player_comparison' and not GEMINI_API_KEY:
-        return jsonify({'result': build_canned_player_comparison(bibs, colours)})
+    if prompt_type == 'custom' and not custom_prompt:
+        return jsonify({'error': 'Please enter a question first.'}), 400
+
+    # Debug fallback: skip the real Gemini call and return a canned response instead,
+    # so the UI/sharing flow can be tested without burning real API quota. Triggers
+    # automatically with no API key configured, or any time an admin has flipped on
+    # the "AI debug mode" toggle (even on a deployment with a real key set).
+    if get_ai_debug_mode() or not GEMINI_API_KEY:
+        if prompt_type == 'player_comparison':
+            return jsonify({'result': build_canned_player_comparison(bibs, colours)})
+        if prompt_type == 'match_report':
+            return jsonify({'result': build_canned_match_report(bibs, colours)})
+        if prompt_type == 'custom':
+            return jsonify({'result': build_canned_custom_response(custom_prompt)})
 
     summary = build_team_summary(bibs, colours, player_forms)
 
     if prompt_type == 'custom':
-        if not custom_prompt:
-            return jsonify({'error': 'Please enter a question first.'}), 400
         prompt = (
             "You are a witty assistant for a group of friends who play 5-a-side football "
             f"every week. Using the team data below as context, respond to this request: "

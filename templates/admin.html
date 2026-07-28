@@ -425,6 +425,14 @@
             <span class="toggle-hint">When locked, the Ratings page is hidden until unlocked.</span>
         </div>
 
+        <div class="toggle-col">
+            <label class="toggle-row">
+                <input type="checkbox" name="ai_debug_mode" {% if ai_debug_mode %}checked{% endif %}>
+                AI debug mode
+            </label>
+            <span class="toggle-hint">When on, the AI Zone returns canned/offline responses instead of calling Gemini (saves API quota while testing).</span>
+        </div>
+
         <div class="field-col">
             <label>Ratings needed to unlock Ratings page</label>
             <input type="number" name="min_ratings_to_view" min="0" value="{{ min_ratings_to_view }}">
