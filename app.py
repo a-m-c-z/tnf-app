@@ -4,6 +4,7 @@ import random
 import json
 import os
 import shutil
+import requests
 from datetime import date, datetime, timedelta
 from functools import wraps
 from pulp import LpMinimize, LpProblem, LpVariable, lpSum, LpBinary, value
@@ -13,6 +14,10 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-me')
 
 # ── Config ────────────────────────────────────────────────────────────────────
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
+
+# Google Gemini API (free tier) — used for the novelty AI team commentary feature.
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-flash-latest')
 
 # Ratings-lock / results-visibility settings are stored in the database so
 # they can be changed live from the admin page without a code deploy/restart.
@@ -524,6 +529,154 @@ def assign_positions(players):
     for i in range(2, 4):
         sorted_players[i]['position'] = 'MID'
     return players
+
+
+# ── AI Zone (Google Gemini) ───────────────────────────────────────────
+
+def call_gemini(prompt):
+    """Send a prompt to the Gemini API. Returns (text, error)."""
+    if not GEMINI_API_KEY:
+        return None, 'Gemini API key not configured. Set the GEMINI_API_KEY environment variable.'
+
+    url = f'https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent'
+    try:
+        resp = requests.post(
+            url,
+            params={'key': GEMINI_API_KEY},
+            json={'contents': [{'parts': [{'text': prompt}]}]},
+            timeout=30,
+        )
+    except requests.RequestException as e:
+        return None, f'Could not reach Gemini API: {e}'
+
+    if resp.status_code != 200:
+        return None, f'Gemini API error ({resp.status_code}): {resp.text[:300]}'
+
+    data = resp.json()
+    try:
+        return data['candidates'][0]['content']['parts'][0]['text'], None
+    except (KeyError, IndexError, TypeError):
+        return None, 'Gemini API returned an unexpected response.'
+
+
+def build_team_summary(bibs, colours, player_forms):
+    """Build a plain-text description of both squads (attributes + notable form) for the AI prompt."""
+    lines = []
+    form_entries = []
+    for team_name, squad in (('Bibs', bibs), ('Colours', colours)):
+        lines.append(f'{team_name} team:')
+        for p in squad:
+            lines.append(
+                f"  - {p['name']} ({p.get('position', '?')}): overall rating {p['avg_rating']:.1f}/10, "
+                f"defence {p['def_rating']:.1f}/10, attack {p['att_rating']:.1f}/10"
+            )
+            form = (player_forms or {}).get(p['name']) or {}
+            games = form.get('games', 0)
+            if games:
+                form_entries.append({
+                    'name': p['name'],
+                    'team': team_name,
+                    'games': games,
+                    'wins': form.get('wins', 0),
+                    'losses': form.get('losses', 0),
+                    'win_rate': form.get('wins', 0) / games,
+                })
+
+    lines.append('')
+    notable = []
+    if form_entries:
+        most_in_form = max(form_entries, key=lambda e: e['win_rate'])
+        most_out_of_form = min(form_entries, key=lambda e: e['win_rate'])
+        if most_in_form['win_rate'] >= 0.6:
+            notable.append(
+                f"{most_in_form['name']} ({most_in_form['team']}) is the standout in-form player, with "
+                f"{most_in_form['wins']} wins out of their last {most_in_form['games']} games (not necessarily consecutive)."
+            )
+        if most_out_of_form is not most_in_form and most_out_of_form['win_rate'] <= 0.2:
+            notable.append(
+                f"{most_out_of_form['name']} ({most_out_of_form['team']}) is the standout out-of-form player, with just "
+                f"{most_out_of_form['wins']} wins out of their last {most_out_of_form['games']} games (not necessarily consecutive)."
+            )
+    if notable:
+        lines.append('Notable recent form (weave these two into the report prominently):')
+        lines.extend(f'  - {n}' for n in notable)
+    else:
+        lines.append("No standout recent form this week — don't mention form at all.")
+    return '\n'.join(lines)
+
+
+AI_PROMPT_RULES = (
+    "Important: recent form figures are win/loss counts out of a player's last few games, "
+    "NOT consecutive streaks — e.g. '4 wins out of last 5 games' does not mean 4 in a row. Never "
+    "describe a player's form using the word 'streak' or imply consecutive results unless the "
+    "data explicitly says so. Stick to the exact figures given rather than embellishing them. "
+    "Also, never explicitly mention or quote anyone's numeric ratings (e.g. do not say things "
+    "like '8.0 attack rating' or 'a 7/10 defender') — use the ratings only to silently judge "
+    "each player's strengths, and describe them in plain, natural language instead. Always refer "
+    "to the two teams exactly as \"Bibs\" and \"Colours\" (normal capitalisation, not written in "
+    "full capitals like \"BIBS\")."
+)
+
+AI_PROMPT_PRESETS = {
+    'match_report': (
+        "You are a witty local football journalist. Write a match report for tonight's 5-a-side "
+        "game between Bibs and Colours, using the player attributes and notable form below. "
+        "Write it in the PAST TENSE, as a recap of a match that has already finished — not a "
+        "prediction. Invent plausible specifics as if you'd watched it: who scored the goals, "
+        "any comedic blunders or defensive howlers, and one or two standout/exceptional "
+        "performances, finishing with a man-of-the-match pick. Base the story primarily on each "
+        "player's attributes and playing style (e.g. a strong attacker, a solid defender, an "
+        "all-rounder) rather than their recent form. If a 'Notable recent form' section is given "
+        "below, prominently work the most in-form and/or most out-of-form player into the story "
+        "(e.g. the in-form player scoring freely, or the out-of-form player fluffing a chance or "
+        "being at fault for a goal) — otherwise don't mention form at all. These games are "
+        "high-scoring 5-a-side matches — realistic final scores are typically somewhere between "
+        "9 and 15 goals per team, so the final scoreline should fall in that range for each side. "
+        "Keep it under 200 words. " + AI_PROMPT_RULES + "\n\n{summary}"
+    ),
+    'player_comparison': (
+        "For each of the 10 players below, pick one real footballer who played at the 2026 FIFA "
+        "World Cup whose playing style and attributes they most resemble, and give a one-line "
+        "witty justification for each comparison. Present it as a simple list grouped by team. "
+        + AI_PROMPT_RULES + "\n\n{summary}"
+    ),
+}
+
+
+@app.route('/generate_ai_content', methods=['POST'])
+def generate_ai_content():
+    try:
+        bibs = json.loads(request.form.get('bibs_json', '[]'))
+        colours = json.loads(request.form.get('colours_json', '[]'))
+        player_forms = json.loads(request.form.get('player_forms_json', '{}'))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid team data.'}), 400
+
+    if not bibs or not colours:
+        return jsonify({'error': 'No team data available.'}), 400
+
+    prompt_type = request.form.get('prompt_type', 'custom')
+    custom_prompt = (request.form.get('custom_prompt') or '').strip()
+    summary = build_team_summary(bibs, colours, player_forms)
+
+    if prompt_type == 'custom':
+        if not custom_prompt:
+            return jsonify({'error': 'Please enter a question first.'}), 400
+        prompt = (
+            "You are a witty assistant for a group of friends who play 5-a-side football "
+            f"every week. Using the team data below as context, respond to this request: "
+            f"{custom_prompt}\n\n{AI_PROMPT_RULES}\n\n{summary}"
+        )
+    else:
+        preset = AI_PROMPT_PRESETS.get(prompt_type)
+        if not preset:
+            return jsonify({'error': 'Unknown prompt type.'}), 400
+        prompt = preset.format(summary=summary)
+
+    text, error = call_gemini(prompt)
+    if error:
+        return jsonify({'error': error}), 502
+    return jsonify({'result': text})
 
 
 if __name__ == '__main__':
