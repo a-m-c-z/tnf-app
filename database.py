@@ -4,6 +4,11 @@ import os
 
 DB_PATH = os.environ.get('DB_PATH', 'ratings.db')
 
+# Reserved fill-in players - always treated as a flat 6/10 across every
+# attribute instead of being rated by users.
+GUEST_NAMES = {'Guest 1', 'Guest 2', 'Guest 3', 'Guest 4'}
+GUEST_FIXED_RATING = 6.0
+
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -125,6 +130,10 @@ def get_average_ratings():
                  ORDER BY p.name''')
     results = c.fetchall()
     conn.close()
+    results = [
+        (row[0], *([GUEST_FIXED_RATING] * 9), 1) if row[0] in GUEST_NAMES else row
+        for row in results
+    ]
     return results
 
 
@@ -157,6 +166,9 @@ def get_average_ratings_filtered(filter_outliers=True):
     players = c.fetchall()
     results = []
     for player_id, player_name in players:
+        if player_name in GUEST_NAMES:
+            results.append((player_name, *([GUEST_FIXED_RATING] * 9), 1))
+            continue
         c.execute('''SELECT defensive_workrate, attacking_workrate,
                             fitness, passing_possession, defending_tackles,
                             shooting, physicality, pace, goalkeeping

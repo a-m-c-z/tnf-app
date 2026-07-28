@@ -74,7 +74,7 @@ def index():
 
 @app.route('/rate')
 def rate_index():
-    players = database.get_players()
+    players = [p for p in database.get_players() if p[1] not in database.GUEST_NAMES]
     random.shuffle(players)
     rated_players = json.loads(request.cookies.get('rated_players', '[]'))
     can_view_results = SHOW_RESULTS and len(rated_players) >= MIN_RATINGS_TO_VIEW
@@ -243,6 +243,17 @@ def confirm_teams():
     return redirect(url_for('team_picker') + f'?confirmed={gw_key}')
 
 
+# ── Standings ─────────────────────────────────────────────────────────────────
+
+@app.route('/standings')
+def standings():
+    from datetime import datetime
+    year  = int(request.args.get('year', datetime.now().year))
+    stats = {name: s for name, s in database.get_season_stats(year).items()
+              if name not in database.GUEST_NAMES}
+    return render_template('standings.html', stats=stats, year=year)
+
+
 # ── Admin ─────────────────────────────────────────────────────────────────────
 
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -271,12 +282,10 @@ def admin():
     # filter to this year
     gw_this_year = [gw for gw in gameweeks if gw['gameweek_key'].endswith(f'-{year}')]
     all_players  = database.get_players()
-    stats        = database.get_season_stats(year)
     current_gw   = get_current_gameweek_key()
     return render_template('admin.html',
                            gameweeks=gw_this_year,
                            all_players=all_players,
-                           stats=stats,
                            year=year,
                            current_gw=current_gw)
 
