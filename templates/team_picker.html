@@ -30,9 +30,10 @@
             background: linear-gradient(135deg, #0a1a0d 0%, #1a3020 100%);
             border-bottom: 2px solid var(--green);
             padding: 18px 24px;
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
-            justify-content: space-between;
+            gap: 12px;
         }
 
         header h1 {
@@ -40,8 +41,12 @@
             font-size: 2rem;
             letter-spacing: 3px;
             color: var(--bibs);
+            justify-self: start;
         }
 
+        header nav {
+            justify-self: end;
+        }
         header nav a {
             color: var(--muted);
             text-decoration: none;
@@ -59,6 +64,7 @@
             letter-spacing: 2px;
             padding: 6px 16px;
             border-radius: 20px;
+            justify-self: center;
         }
 
         main { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
