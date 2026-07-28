@@ -10,3 +10,6 @@ env/
 
 # OS
 .DS_Store
+
+# Local database (production uses a Railway volume, not this file)
+ratings.db
