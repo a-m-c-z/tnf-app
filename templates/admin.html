@@ -387,6 +387,57 @@
             cursor: pointer;
         }
         .settings-form button:hover { background: var(--green); }
+
+        /* ── Players' Player of the Year ── */
+        .potm-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .potm-status { font-size: 0.85rem; color: var(--muted); }
+        .potm-open   { color: var(--green-l); font-weight: 700; }
+        .potm-closed { color: var(--colours); font-weight: 700; }
+        .potm-tally { display: flex; flex-direction: column; gap: 8px; }
+        .potm-row {
+            display: grid;
+            grid-template-columns: 140px 1fr 32px;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.9rem;
+        }
+        .potm-row.leader .potm-name { color: var(--bibs); font-weight: 700; }
+        .potm-bar {
+            height: 10px;
+            background: var(--card2);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .potm-bar span {
+            display: block;
+            height: 100%;
+            background: var(--green-l);
+            border-radius: 5px;
+        }
+        .potm-row.leader .potm-bar span { background: var(--bibs); }
+        .potm-count { text-align: right; font-weight: 600; }
+        .potm-details summary {
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+        .potm-details ul {
+            list-style: none;
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: var(--muted);
+            columns: 2;
+        }
+        .potm-details li { padding: 2px 0; }
+        .potm-details strong { color: var(--text); font-weight: 600; }
     </style>
 </head>
 <body>
@@ -397,7 +448,8 @@
         <a href="/team_picker" class="{{ 'active' if request.path in ['/team_picker', '/generate_teams', '/confirm_teams'] else '' }}">Team Picker</a>
         <a href="/rate" class="{{ 'active' if request.path.startswith('/rate') or request.path.startswith('/submit_rating') or request.path.startswith('/thank_you') else '' }}">Rate</a>
         <a href="/results" class="{{ 'active' if request.path == '/results' else '' }}">Ratings</a>
-        <a href="/standings" class="{{ 'active' if request.path == '/standings' else '' }}">Standings</a>
+        {% if nav_show_standings %}<a href="/standings" class="{{ 'active' if request.path == '/standings' else '' }}">Standings</a>{% endif %}
+        {% if nav_voting_open %}<a href="/vote" class="{{ 'active' if request.path.startswith('/vote') else '' }}">Awards Vote</a>{% endif %}
         <a href="/admin/logout" class="logout">Logout</a>
     </nav>
     <button class="hamburger" onclick="toggleNav(this)" aria-label="Toggle menu"><span></span><span></span><span></span></button>
@@ -433,6 +485,22 @@
             <span class="toggle-hint">When on, the AI Zone returns canned/offline responses instead of calling Gemini (saves API quota while testing).</span>
         </div>
 
+        <div class="toggle-col">
+            <label class="toggle-row">
+                <input type="checkbox" name="standings_hidden" {% if not show_standings %}checked{% endif %}>
+                Hide Standings page
+            </label>
+            <span class="toggle-hint">When hidden, the Standings page is removed from the menu (admins can still view it).</span>
+        </div>
+
+        <div class="toggle-col">
+            <label class="toggle-row">
+                <input type="checkbox" name="potm_voting_open" {% if potm_voting_open %}checked{% endif %}>
+                Open end-of-season voting
+            </label>
+            <span class="toggle-hint">When on, the Players' Player of the Year vote page appears in the menu.</span>
+        </div>
+
         <div class="field-col">
             <label>Ratings needed to unlock Ratings page</label>
             <input type="number" name="min_ratings_to_view" min="0" value="{{ min_ratings_to_view }}">
@@ -442,6 +510,47 @@
             <button type="submit">Save Settings</button>
         </div>
     </form>
+
+    <!-- ── Players' Player of the Year ───────────────────── -->
+    <div class="section-title">Players' Player of the Year {{ potm_season }}</div>
+
+    <div class="potm-card">
+        <div class="potm-status">
+            Voting is
+            {% if potm_voting_open %}<span class="potm-open">OPEN</span>
+            {% else %}<span class="potm-closed">CLOSED</span>{% endif %}
+            &middot; {{ potm_votes|length }} vote{{ '' if potm_votes|length == 1 else 's' }} cast
+        </div>
+
+        {% if potm_tally %}
+        {% set top = potm_tally[0].votes %}
+        <div class="potm-tally">
+            {% for row in potm_tally %}
+            <div class="potm-row {% if row.votes == top %}leader{% endif %}">
+                <span class="potm-name">{% if row.votes == top %}🏆 {% endif %}{{ row.name }}</span>
+                <span class="potm-bar"><span style="width: {{ (row.votes / top * 100)|round }}%"></span></span>
+                <span class="potm-count">{{ row.votes }}</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <details class="potm-details">
+            <summary>Show individual votes</summary>
+            <ul>
+                {% for v in potm_votes %}
+                <li><strong>{{ v.voter }}</strong> → {{ v.nominee }}</li>
+                {% endfor %}
+            </ul>
+        </details>
+
+        <form method="POST" action="/admin/reset_potm_votes"
+              onsubmit="return confirm('Delete all {{ potm_season }} Players\' Player of the Year votes? This cannot be undone.')">
+            <button type="submit" class="btn-delete">🗑 Reset votes</button>
+        </form>
+        {% else %}
+        <div class="no-data" style="padding:16px;">No votes yet.</div>
+        {% endif %}
+    </div>
 
     <!-- ── Add Retrospective Gameweek ────────────────────── -->
     <div class="section-title">Add Retrospective Gameweek</div>

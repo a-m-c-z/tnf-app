@@ -41,6 +41,28 @@ def get_ai_debug_mode():
     return database.get_setting('ai_debug_mode', '0') == '1'
 
 
+def get_show_standings():
+    return database.get_setting('show_standings', '1') == '1'
+
+
+def get_potm_voting_open():
+    return database.get_setting('potm_voting_open', '0') == '1'
+
+
+# Minimum completed games this season to be eligible for Players' Player
+# of the Year.
+POTM_MIN_GAMES = 15
+
+
+@app.context_processor
+def inject_nav_flags():
+    """Make page-visibility flags available to every template's nav."""
+    return {
+        'nav_show_standings': get_show_standings(),
+        'nav_voting_open': get_potm_voting_open(),
+    }
+
+
 PLAYERS = [
     'Alex', 'Gibbo', 'Paolo', 'Laff', 'Fenton', 'Jonny', 'Tom', 'Ed',
     'Scott', 'Kev', 'Adam', 'Ilya', 'Shaun', 'Luke', 'Kieran', 'Farrar',
@@ -346,11 +368,63 @@ def confirm_teams():
 
 @app.route('/standings')
 def standings():
-    from datetime import datetime
+    if not get_show_standings() and not session.get('admin_logged_in'):
+        return redirect(url_for('team_picker'))
     year  = int(request.args.get('year', datetime.now().year))
     stats = {name: s for name, s in database.get_season_stats(year).items()
               if name not in database.GUEST_NAMES}
     return render_template('standings.html', stats=stats, year=year)
+
+
+# ── Players' Player of the Year vote ────────────────────────────────────────
+
+def get_potm_eligibility(season):
+    """Return (voters, nominees) as lists of (id, name) tuples.
+
+    Voters: every non-guest player. Nominees: non-guest players with at
+    least POTM_MIN_GAMES completed games this season.
+    """
+    players = [p for p in database.get_players()
+               if p[1] not in database.GUEST_NAMES]
+    stats = database.get_season_stats(season)
+    nominees = [p for p in players
+                if stats.get(p[1], {}).get('games', 0) >= POTM_MIN_GAMES]
+    return players, nominees
+
+
+@app.route('/vote', methods=['GET', 'POST'])
+def vote():
+    season = datetime.now().year
+    if not get_potm_voting_open():
+        return render_template('vote.html', voting_open=False,
+                               season=season)
+
+    voters, nominees = get_potm_eligibility(season)
+    voter_ids = {p[0] for p in voters}
+    nominee_ids = {p[0] for p in nominees}
+    error = None
+
+    if request.method == 'POST':
+        try:
+            voter_id = int(request.form.get('voter_id', ''))
+            nominee_id = int(request.form.get('nominee_id', ''))
+        except ValueError:
+            voter_id = nominee_id = None
+
+        if voter_id not in voter_ids:
+            error = 'Please select who you are.'
+        elif nominee_id not in nominee_ids:
+            error = 'Please select an eligible player.'
+        elif voter_id == nominee_id:
+            error = "Nice try — you can't vote for yourself."
+        else:
+            database.save_potm_vote(season, voter_id, nominee_id)
+            return redirect(url_for('vote', done=1))
+
+    return render_template('vote.html', voting_open=True, season=season,
+                           voters=voters, nominees=nominees,
+                           min_games=POTM_MIN_GAMES, error=error,
+                           done=request.args.get('done'))
 
 
 # ── Admin ─────────────────────────────────────────────────────────────────────
@@ -381,6 +455,8 @@ def admin():
     gw_this_year = [gw for gw in gameweeks if gw['gameweek_key'].endswith(f'-{year}')]
     all_players  = database.get_players()
     current_gw   = get_current_gameweek_key()
+    potm_season  = datetime.now().year
+    potm_tally, potm_votes = database.get_potm_results(potm_season)
     return render_template('admin.html',
                            gameweeks=gw_this_year,
                            all_players=all_players,
@@ -389,7 +465,12 @@ def admin():
                            ratings_locked=get_ratings_locked(),
                            show_results=get_show_results(),
                            min_ratings_to_view=get_min_ratings_to_view(),
-                           ai_debug_mode=get_ai_debug_mode())
+                           ai_debug_mode=get_ai_debug_mode(),
+                           show_standings=get_show_standings(),
+                           potm_voting_open=get_potm_voting_open(),
+                           potm_tally=potm_tally,
+                           potm_votes=potm_votes,
+                           potm_season=potm_season)
 
 
 @app.route('/admin/update_settings', methods=['POST'])
@@ -399,6 +480,12 @@ def admin_update_settings():
     database.set_setting('ratings_locked', '1' if request.form.get('rate_locked') == 'on' else '0')
     database.set_setting('show_results', '0' if request.form.get('results_locked') == 'on' else '1')
     database.set_setting('ai_debug_mode', '1' if request.form.get('ai_debug_mode') == 'on' else '0')
+    database.set_setting(
+        'show_standings',
+        '0' if request.form.get('standings_hidden') == 'on' else '1')
+    database.set_setting(
+        'potm_voting_open',
+        '1' if request.form.get('potm_voting_open') == 'on' else '0')
     try:
         min_ratings = max(0, int(request.form.get('min_ratings_to_view', '0')))
     except ValueError:
@@ -494,6 +581,14 @@ def admin_restore_backup():
 def admin_reset_ratings():
     """Permanently delete all submitted player ratings (players/gameweeks untouched)."""
     database.reset_ratings()
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/reset_potm_votes', methods=['POST'])
+@admin_required
+def admin_reset_potm_votes():
+    """Delete all Players' Player of the Year votes for this season."""
+    database.reset_potm_votes(datetime.now().year)
     return redirect(url_for('admin'))
 
 
