@@ -196,13 +196,13 @@
         {% if not voting_open %}
             <h2>🔒 Voting Closed</h2>
             <p class="lede">End-of-season voting isn't open right now.</p>
-        {% elif done %}
-            <div class="vote-done">🏆</div>
+        {% elif already_voted %}
+            <div class="vote-done">🗳️</div>
             <h2>Vote Counted</h2>
-            <p class="lede">Thanks! Your vote for Players' Player of the Year {{ season }} is in. Voting again will replace your earlier choice.</p>
+            <p class="lede">{{ message }}</p>
         {% else %}
             <h2>🏆 Players' Player {{ season }}</h2>
-            <p class="lede">Who's been the best player this season? You can't vote for yourself.</p>
+            <p class="lede">Who's been the best player this season? You can't vote for yourself, and votes are final.</p>
 
             {% if error %}<div class="vote-error">⚠️ {{ error }}</div>{% endif %}
 
@@ -215,7 +215,11 @@
                     <select name="voter_id" id="voter" required>
                         <option value="">— Select your name —</option>
                         {% for p in voters %}
+                        {% if p[0] in voted_ids %}
+                        <option value="{{ p[0] }}" disabled>{{ p[1] }} (voted)</option>
+                        {% else %}
                         <option value="{{ p[0] }}" {% if request.form.get('voter_id') == p[0]|string %}selected{% endif %}>{{ p[1] }}</option>
+                        {% endif %}
                         {% endfor %}
                     </select>
                 </div>
