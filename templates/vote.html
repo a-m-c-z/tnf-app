@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Players' Player of the Year — TNF</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --green:   #1a7a2e;
+            --green-l: #2d9e45;
+            --bibs:    #f5c518;
+            --colours: #dc3545;
+            --bg:      #0f1a12;
+            --card:    #1a2b1e;
+            --border:  #2a3d2e;
+            --text:    #e8f0e9;
+            --muted:   #7a9a7e;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        header {
+            background: linear-gradient(135deg, #0a1a0d 0%, #1a3020 100%);
+            border-bottom: 2px solid var(--green);
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        header h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem;
+            letter-spacing: 3px;
+            color: var(--bibs);
+        }
+
+        header nav a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.85rem;
+            margin-left: 20px;
+            transition: color .2s;
+        }
+        header nav a:hover { color: var(--text); }
+        header nav a.active { color: var(--bibs); font-weight: 600; }
+
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            gap: 5px;
+            width: 30px;
+            height: 30px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+        }
+        .hamburger span {
+            display: block;
+            height: 2px;
+            width: 100%;
+            background: var(--text);
+            border-radius: 2px;
+            transition: transform .2s ease, opacity .2s ease;
+        }
+        .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .hamburger.open span:nth-child(2) { opacity: 0; }
+        .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        @media (max-width: 720px) {
+            .hamburger { display: flex; }
+            header nav {
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                flex-direction: column;
+                background: var(--card);
+                border-bottom: 2px solid var(--green);
+                padding: 8px 0;
+                z-index: 50;
+            }
+            header nav.open { display: flex; }
+            header nav a {
+                margin-left: 0;
+                padding: 12px 24px;
+                border-top: 1px solid var(--border);
+            }
+            header nav a:first-child { border-top: none; }
+        }
+
+        main { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
+
+        .section-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.4rem;
+            letter-spacing: 2px;
+            color: var(--green-l);
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        /* ── Vote ── */
+        .vote-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 28px 24px;
+            max-width: 480px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .vote-card h2 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.8rem;
+            letter-spacing: 2px;
+            color: var(--bibs);
+            margin-bottom: 6px;
+        }
+        .vote-card p.lede { color: var(--muted); font-size: 0.9rem; margin-bottom: 22px; }
+        .vote-field { text-align: left; margin-bottom: 18px; }
+        .vote-field label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        .vote-field select {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 11px 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+        }
+        .vote-field select:focus { border-color: var(--green-l); }
+        .vote-field select:disabled { opacity: 0.5; }
+        .vote-hint { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+        .btn-vote {
+            width: 100%;
+            padding: 12px;
+            background: var(--green-l);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-vote:hover { background: var(--green); }
+        .btn-vote:disabled { opacity: 0.5; cursor: not-allowed; }
+        .vote-error {
+            background: rgba(220,53,69,0.15);
+            border: 1px solid var(--colours);
+            color: #ff8a93;
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            font-size: 0.85rem;
+        }
+        .vote-done { font-size: 3rem; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>⚽ TNF</h1>
+        <nav>
+            <a href="/team_picker" class="{{ 'active' if request.path in ['/team_picker', '/generate_teams', '/confirm_teams'] else '' }}">Team Picker</a>
+            <a href="/rate" class="{{ 'active' if request.path.startswith('/rate') or request.path.startswith('/submit_rating') or request.path.startswith('/thank_you') else '' }}">Rate</a>
+            <a href="/results" class="{{ 'active' if request.path == '/results' else '' }}">Ratings</a>
+            {% if nav_show_standings %}<a href="/standings" class="{{ 'active' if request.path == '/standings' else '' }}">Standings</a>{% endif %}
+            {% if nav_voting_open %}<a href="/vote" class="{{ 'active' if request.path.startswith('/vote') else '' }}">Awards Vote</a>{% endif %}
+            <a href="/admin" class="{{ 'active' if request.path.startswith('/admin') else '' }}">Admin</a>
+        </nav>
+        <button class="hamburger" onclick="toggleNav(this)" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+    </header>
+
+    <main>
+        <div class="vote-card">
+        {% if not voting_open %}
+            <h2>🔒 Voting Closed</h2>
+            <p class="lede">End-of-season voting isn't open right now.</p>
+        {% elif done %}
+            <div class="vote-done">🏆</div>
+            <h2>Vote Counted</h2>
+            <p class="lede">Thanks! Your vote for Players' Player of the Year {{ season }} is in. Voting again will replace your earlier choice.</p>
+        {% else %}
+            <h2>🏆 Players' Player {{ season }}</h2>
+            <p class="lede">Who's been the best player this season? You can't vote for yourself.</p>
+
+            {% if error %}<div class="vote-error">⚠️ {{ error }}</div>{% endif %}
+
+            {% if nominees|length < 2 %}
+            <p class="lede">Not enough players have reached {{ min_games }} games yet.</p>
+            {% else %}
+            <form method="POST" action="/vote" id="voteForm">
+                <div class="vote-field">
+                    <label for="voter">Who are you?</label>
+                    <select name="voter_id" id="voter" required>
+                        <option value="">— Select your name —</option>
+                        {% for p in voters %}
+                        <option value="{{ p[0] }}" {% if request.form.get('voter_id') == p[0]|string %}selected{% endif %}>{{ p[1] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="vote-field">
+                    <label for="nominee">Your Players' Player of the Year</label>
+                    <select name="nominee_id" id="nominee" required disabled>
+                        <option value="">— Select a player —</option>
+                        {% for p in nominees %}
+                        <option value="{{ p[0] }}">{{ p[1] }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="vote-hint">Only players with {{ min_games }}+ games this season are eligible.</div>
+                </div>
+
+                <button type="submit" class="btn-vote" id="voteBtn" disabled>Submit Vote</button>
+            </form>
+            {% endif %}
+        {% endif %}
+        </div>
+    </main>
+
+    <script>
+        function toggleNav(btn) {
+            const nav = btn.parentElement.querySelector('nav');
+            nav.classList.toggle('open');
+            btn.classList.toggle('open');
+        }
+    </script>
+    <script>
+        (function () {
+            const voter = document.getElementById('voter');
+            const nominee = document.getElementById('nominee');
+            const btn = document.getElementById('voteBtn');
+            if (!voter) return;
+
+            function refresh() {
+                // Hide yourself from the nominee list
+                for (const opt of nominee.options) {
+                    if (!opt.value) continue;
+                    const isSelf = opt.value === voter.value;
+                    opt.hidden = isSelf;
+                    opt.disabled = isSelf;
+                    if (isSelf && opt.selected) nominee.value = '';
+                }
+                nominee.disabled = !voter.value;
+                btn.disabled = !(voter.value && nominee.value);
+            }
+            voter.addEventListener('change', refresh);
+            nominee.addEventListener('change', refresh);
+            refresh();
+        })();
+    </script>
+</body>
+</html>

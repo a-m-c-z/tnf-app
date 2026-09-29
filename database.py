@@ -59,6 +59,18 @@ def init_db():
                  (key TEXT PRIMARY KEY,
                   value TEXT)''')
 
+    # End-of-season Players' Player of the Year votes. One vote per voter
+    # per season; re-voting replaces the earlier choice.
+    c.execute('''CREATE TABLE IF NOT EXISTS potm_votes
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  season INTEGER NOT NULL,
+                  voter_id INTEGER NOT NULL,
+                  nominee_id INTEGER NOT NULL,
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                  UNIQUE (season, voter_id),
+                  FOREIGN KEY (voter_id) REFERENCES players(id),
+                  FOREIGN KEY (nominee_id) REFERENCES players(id))''')
+
     conn.commit()
     conn.close()
 
@@ -586,5 +598,57 @@ def save_gameweek_teams_manual(gameweek_key, bibs_names, colours_names):
                      colours_avg     = excluded.colours_avg,
                      updated_at      = CURRENT_TIMESTAMP''',
               (gameweek_key, json.dumps(bibs), json.dumps(colours), bibs_avg, colours_avg))
+    conn.commit()
+    conn.close()
+
+
+# ── Players' Player of the Year voting ──────────────────────────────────────
+
+def save_potm_vote(season, voter_id, nominee_id):
+    """Record a vote, replacing any earlier vote by the same voter."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''INSERT INTO potm_votes (season, voter_id, nominee_id)
+                 VALUES (?, ?, ?)
+                 ON CONFLICT(season, voter_id) DO UPDATE SET
+                     nominee_id = excluded.nominee_id,
+                     created_at = CURRENT_TIMESTAMP''',
+              (season, voter_id, nominee_id))
+    conn.commit()
+    conn.close()
+
+
+def get_potm_results(season):
+    """Return (tally, votes) for a season.
+
+    tally: list of {'name', 'votes'}, most votes first.
+    votes: list of {'voter', 'nominee', 'created_at'}, by voter name.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''SELECT n.name, COUNT(*) AS votes
+                 FROM potm_votes v
+                 JOIN players n ON v.nominee_id = n.id
+                 WHERE v.season = ?
+                 GROUP BY n.id
+                 ORDER BY votes DESC, n.name''', (season,))
+    tally = [{'name': r[0], 'votes': r[1]} for r in c.fetchall()]
+    c.execute('''SELECT vp.name, n.name, v.created_at
+                 FROM potm_votes v
+                 JOIN players vp ON v.voter_id = vp.id
+                 JOIN players n ON v.nominee_id = n.id
+                 WHERE v.season = ?
+                 ORDER BY vp.name''', (season,))
+    votes = [{'voter': r[0], 'nominee': r[1], 'created_at': r[2]}
+             for r in c.fetchall()]
+    conn.close()
+    return tally, votes
+
+
+def reset_potm_votes(season):
+    """Delete all votes for a season."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM potm_votes WHERE season = ?", (season,))
     conn.commit()
     conn.close()
