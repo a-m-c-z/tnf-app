@@ -152,30 +152,127 @@
         .counter.valid   { color: #4caf50; }
         .counter.invalid { color: var(--colours); }
 
-        .player-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 8px;
-            margin-bottom: 20px;
+        /* ── Paste box ── */
+        .paste-box { margin-bottom: 20px; }
+        .paste-box summary {
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--muted);
+            margin-bottom: 10px;
         }
-
-        .player-checkbox {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 12px;
+        .paste-box textarea {
+            width: 100%;
+            min-height: 150px;
             background: var(--bg);
             border: 1px solid var(--border);
             border-radius: 8px;
-            cursor: pointer;
-            transition: border-color .15s, background .15s;
+            color: var(--text);
+            font-family: inherit;
             font-size: 0.9rem;
+            padding: 10px 12px;
+            resize: vertical;
+            outline: none;
         }
-        .player-checkbox:hover { border-color: var(--green-l); }
-        .player-checkbox input { accent-color: var(--green-l); }
-        .player-checkbox.checked {
+        .paste-box textarea:focus { border-color: var(--green-l); }
+        .paste-actions { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+        .btn-small {
+            background: var(--green-l);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-small.secondary {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--border);
+        }
+        .btn-small:hover { filter: brightness(1.1); }
+
+        /* ── Squad slots ── */
+        .slot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .slot { position: relative; }
+        .slot-row { display: flex; align-items: center; gap: 8px; }
+        .slot-num {
+            width: 22px;
+            text-align: right;
+            font-weight: 600;
+            color: var(--muted);
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        .slot input[type="text"] {
+            flex: 1;
+            min-width: 0;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.95rem;
+            padding: 10px 12px;
+            outline: none;
+            transition: border-color .15s, background .15s;
+        }
+        .slot input[type="text"]:focus { border-color: var(--green-l); }
+        .slot.ok input[type="text"] {
             border-color: var(--green-l);
             background: rgba(45,158,69,0.15);
+        }
+        .slot.bad input[type="text"] { border-color: var(--colours); }
+        .slot-clear {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 4px;
+            visibility: hidden;
+        }
+        .slot.filled .slot-clear { visibility: visible; }
+        .ac-list {
+            position: absolute;
+            left: 30px;
+            right: 26px;
+            top: 100%;
+            margin-top: 2px;
+            background: var(--card);
+            border: 1px solid var(--green-l);
+            border-radius: 8px;
+            list-style: none;
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 40;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        }
+        .ac-list li {
+            padding: 9px 12px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .ac-list li small { color: var(--muted); margin-left: 6px; }
+        .ac-list li.active, .ac-list li:hover { background: rgba(45,158,69,0.25); }
+        .slot-msg {
+            margin: 6px 0 0 30px;
+            font-size: 0.78rem;
+            color: #ff8a93;
+        }
+        .slot-msg select {
+            margin-top: 6px;
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--colours);
+            color: var(--text);
+            padding: 7px 8px;
+            border-radius: 6px;
+            font-size: 0.85rem;
         }
 
         .btn {
@@ -383,16 +480,33 @@
 
         <div class="selection-card">
             <p class="section-title">Select Players</p>
+
+            <details class="paste-box" id="pasteBox" open>
+                <summary>📋 Paste the TNF list from WhatsApp</summary>
+                <textarea id="pasteText" placeholder="1. Paul&#10;2. Adam&#10;3. Luke&#10;…&#10;10. Jonny&#10;Sub 1: Ben F"></textarea>
+                <div class="paste-actions">
+                    <button type="button" class="btn-small" onclick="fillFromPaste()">Fill squad from list</button>
+                    <button type="button" class="btn-small secondary" onclick="clearSlots()">Clear all</button>
+                </div>
+            </details>
+
             <div class="counter" id="counter">Selected: 0 / 10</div>
 
-            <form method="POST" action="/generate_teams" id="teamForm">
-                <div class="player-grid">
-                    {% for player in players %}
-                    <label class="player-checkbox" id="label-{{ player[0] }}">
-                        <input type="checkbox" name="players" value="{{ player[0] }}"
-                               onchange="updateCounter(this)">
-                        {{ player[1] }}
-                    </label>
+            <form method="POST" action="/generate_teams" id="teamForm" autocomplete="off">
+                <div class="slot-grid" id="slotGrid">
+                    {% for i in range(10) %}
+                    <div class="slot" data-index="{{ i }}">
+                        <div class="slot-row">
+                            <span class="slot-num">{{ i + 1 }}.</span>
+                            <input type="text" class="slot-input" placeholder="Player {{ i + 1 }}"
+                                   aria-label="Player {{ i + 1 }}" autocomplete="off"
+                                   autocapitalize="words" spellcheck="false">
+                            <input type="hidden" name="players" class="slot-id" value="">
+                            <button type="button" class="slot-clear" aria-label="Clear player {{ i + 1 }}">✕</button>
+                        </div>
+                        <ul class="ac-list" hidden></ul>
+                        <div class="slot-msg" hidden></div>
+                    </div>
                     {% endfor %}
                 </div>
                 <button type="submit" class="btn btn-generate" id="generateBtn" disabled>
@@ -588,29 +702,313 @@
             btn.classList.toggle('open');
         }
 
-        function updateCounter(cb) {
-            const checked = document.querySelectorAll('input[name="players"]:checked');
-            const count   = checked.length;
-            const counter = document.getElementById('counter');
-            const btn     = document.getElementById('generateBtn');
+        // ── Squad picker ────────────────────────────────────────────────
+        const PICKER_PLAYERS = {{ picker_players | tojson }};
+        const PICKER_NICKNAMES = {{ picker_nicknames | tojson }};
+        const PRESELECTED_IDS = {{ ((teams.selected_ids if teams else []) or []) | tojson }};
+        const playerById = new Map(PICKER_PLAYERS.map(p => [p.id, p]));
+        const slots = Array.from(document.querySelectorAll('.slot'));
 
-            // Update label styles
-            document.querySelectorAll('.player-checkbox').forEach(l => l.classList.remove('checked'));
-            checked.forEach(c => c.closest('.player-checkbox').classList.add('checked'));
+        // WhatsApp lists contain invisible joiners (e.g. "1.⁠ ⁠Paul").
+        const INVISIBLE = /[\u00A0\u200B-\u200D\u2060\uFEFF]/g;
 
-            counter.textContent = `Selected: ${count} / 10`;
-            if (count === 10) {
-                counter.className = 'counter valid';
-                btn.disabled = false;
-            } else if (count > 10) {
-                counter.className = 'counter invalid';
-                counter.textContent = `Selected: ${count} / 10 — too many!`;
-                btn.disabled = true;
-            } else {
-                counter.className = 'counter';
-                btn.disabled = true;
-            }
+        function normalise(text) {
+            return (text || '').replace(INVISIBLE, ' ').replace(/\s+/g, ' ')
+                               .trim().toLowerCase();
         }
+
+        function resolveName(text) {
+            const n = normalise(text);
+            if (!n) return null;
+            const exact = PICKER_PLAYERS.find(p => p.name.toLowerCase() === n);
+            if (exact) return exact.id;
+            if (n in PICKER_NICKNAMES) return PICKER_NICKNAMES[n];
+            return null;
+        }
+
+        function slotParts(slot) {
+            return {
+                input: slot.querySelector('.slot-input'),
+                hidden: slot.querySelector('.slot-id'),
+                list: slot.querySelector('.ac-list'),
+                msg: slot.querySelector('.slot-msg'),
+            };
+        }
+
+        function takenIds(exceptSlot) {
+            const ids = new Set();
+            for (const s of slots) {
+                if (s === exceptSlot) continue;
+                const v = slotParts(s).hidden.value;
+                if (v) ids.add(Number(v));
+            }
+            return ids;
+        }
+
+        function setSlot(slot, playerId) {
+            const { input, hidden, list, msg } = slotParts(slot);
+            const player = playerById.get(playerId);
+            hidden.value = player.id;
+            input.value = player.name;
+            slot.classList.add('ok', 'filled');
+            slot.classList.remove('bad');
+            list.hidden = true;
+            msg.hidden = true;
+            msg.innerHTML = '';
+            updateCounter();
+        }
+
+        function resetSlot(slot) {
+            const { input, hidden, list, msg } = slotParts(slot);
+            input.value = '';
+            hidden.value = '';
+            slot.classList.remove('ok', 'bad', 'filled');
+            list.hidden = true;
+            msg.hidden = true;
+            msg.innerHTML = '';
+        }
+
+        function clearSlots() {
+            slots.forEach(resetSlot);
+            updateCounter();
+        }
+
+        function showMessage(slot, text) {
+            const { msg } = slotParts(slot);
+            msg.textContent = text;
+            msg.hidden = false;
+            slot.classList.add('bad');
+            slot.classList.remove('ok');
+        }
+
+        // "Player not found, who is this?" — choosing a player saves the
+        // typed name as a nickname so it resolves automatically next time.
+        function askWhoIsThis(slot, typed) {
+            const { msg } = slotParts(slot);
+            const taken = takenIds(slot);
+            msg.innerHTML = '';
+            const label = document.createElement('div');
+            label.textContent = `Player not found — who is "${typed}"?`;
+            const select = document.createElement('select');
+            select.innerHTML = '<option value="">— Select player —</option>';
+            for (const p of PICKER_PLAYERS) {
+                if (taken.has(p.id)) continue;
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                select.appendChild(opt);
+            }
+            select.addEventListener('change', async () => {
+                const playerId = Number(select.value);
+                if (!playerId) return;
+                select.disabled = true;
+                try {
+                    const body = new URLSearchParams({
+                        nickname: typed, player_id: String(playerId),
+                    });
+                    const resp = await fetch('/nicknames', { method: 'POST', body });
+                    const data = await resp.json();
+                    if (!resp.ok) throw new Error(data.error || 'Could not save');
+                    PICKER_NICKNAMES[data.nickname] = playerId;
+                } catch (err) {
+                    // Still use the player for this squad even if the
+                    // nickname couldn't be saved.
+                    console.error(err);
+                }
+                setSlot(slot, playerId);
+            });
+            msg.append(label, select);
+            msg.hidden = false;
+            slot.classList.add('bad');
+            slot.classList.remove('ok');
+        }
+
+        // Try to turn whatever is typed in a slot into a player.
+        function commitSlot(slot) {
+            const { input, hidden } = slotParts(slot);
+            const typed = input.value.replace(INVISIBLE, ' ').trim();
+            slot.classList.toggle('filled', !!typed);
+            if (!typed) { resetSlot(slot); updateCounter(); return; }
+            if (hidden.value) return;
+            const id = resolveName(typed);
+            if (id === null) {
+                askWhoIsThis(slot, typed);
+            } else if (takenIds(slot).has(id)) {
+                showMessage(slot, `${playerById.get(id).name} is already listed.`);
+            } else {
+                setSlot(slot, id);
+            }
+            updateCounter();
+        }
+
+        function suggestionsFor(slot, query) {
+            const q = normalise(query);
+            const taken = takenIds(slot);
+            const results = [];
+            const seen = new Set();
+            const add = (id, via) => {
+                if (taken.has(id) || seen.has(id)) return;
+                seen.add(id);
+                results.push({ player: playerById.get(id), via });
+            };
+            const available = PICKER_PLAYERS.filter(p => !taken.has(p.id));
+            if (!q) {
+                available.forEach(p => add(p.id));
+                return results;
+            }
+            // Names starting with the query first, then contains, then
+            // nicknames that match.
+            available.filter(p => p.name.toLowerCase().startsWith(q))
+                     .forEach(p => add(p.id));
+            available.filter(p => p.name.toLowerCase().includes(q))
+                     .forEach(p => add(p.id));
+            for (const [nick, id] of Object.entries(PICKER_NICKNAMES)) {
+                if (nick.startsWith(q) && playerById.has(id)) add(id, nick);
+            }
+            return results;
+        }
+
+        function renderSuggestions(slot) {
+            const { input, list } = slotParts(slot);
+            const items = suggestionsFor(slot, input.value);
+            list.innerHTML = '';
+            if (!items.length) { list.hidden = true; return; }
+            items.forEach(({ player, via }, i) => {
+                const li = document.createElement('li');
+                li.textContent = player.name;
+                if (via) {
+                    const small = document.createElement('small');
+                    small.textContent = `"${via}"`;
+                    li.appendChild(small);
+                }
+                li.dataset.id = player.id;
+                if (i === 0) li.classList.add('active');
+                // Stop mousedown blurring the input (which would hide
+                // the list); select on click so touch-scrolling the list
+                // doesn't pick someone by accident.
+                li.addEventListener('mousedown', e => e.preventDefault());
+                li.addEventListener('click', () => {
+                    setSlot(slot, player.id);
+                    focusNextEmpty(slot);
+                });
+                list.appendChild(li);
+            });
+            list.hidden = false;
+        }
+
+        function focusNextEmpty(fromSlot) {
+            const start = slots.indexOf(fromSlot);
+            for (let k = 1; k <= slots.length; k++) {
+                const s = slots[(start + k) % slots.length];
+                if (!slotParts(s).hidden.value) {
+                    slotParts(s).input.focus();
+                    return;
+                }
+            }
+            slotParts(fromSlot).input.blur();
+        }
+
+        slots.forEach(slot => {
+            const { input, hidden, list } = slotParts(slot);
+            input.addEventListener('input', () => {
+                hidden.value = '';
+                slot.classList.remove('ok', 'bad');
+                slot.classList.toggle('filled', !!input.value);
+                slotParts(slot).msg.hidden = true;
+                renderSuggestions(slot);
+                updateCounter();
+            });
+            input.addEventListener('focus', () => {
+                if (!hidden.value) renderSuggestions(slot);
+            });
+            input.addEventListener('blur', () => {
+                list.hidden = true;
+                commitSlot(slot);
+            });
+            input.addEventListener('keydown', e => {
+                const items = Array.from(list.querySelectorAll('li'));
+                const active = list.querySelector('li.active');
+                let idx = items.indexOf(active);
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    if (list.hidden || !items.length) return;
+                    e.preventDefault();
+                    idx = e.key === 'ArrowDown'
+                        ? Math.min(idx + 1, items.length - 1)
+                        : Math.max(idx - 1, 0);
+                    items.forEach(li => li.classList.remove('active'));
+                    items[idx].classList.add('active');
+                    items[idx].scrollIntoView({ block: 'nearest' });
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();  // don't submit the form
+                    if (!list.hidden && active) {
+                        setSlot(slot, Number(active.dataset.id));
+                        focusNextEmpty(slot);
+                    } else {
+                        commitSlot(slot);
+                    }
+                } else if (e.key === 'Escape') {
+                    list.hidden = true;
+                }
+            });
+            slot.querySelector('.slot-clear').addEventListener('click', () => {
+                resetSlot(slot);
+                updateCounter();
+                input.focus();
+            });
+        });
+
+        // Parse "1.⁠ ⁠Paul" style lines; subs and anything unnumbered
+        // are ignored.
+        function parseTnfList(text) {
+            const names = new Array(10).fill('');
+            for (const raw of text.split(/\r?\n/)) {
+                const line = raw.replace(INVISIBLE, ' ').trim();
+                const m = line.match(/^(\d{1,2})\s*[.):-]\s*(.*)$/);
+                if (!m) continue;
+                const num = Number(m[1]);
+                if (num < 1 || num > 10) continue;
+                // Drop trailing emoji/ticks, e.g. "Tom ✅"
+                names[num - 1] = m[2]
+                    .replace(/[^\p{L}\p{N}.'’)\-]+$/u, '').trim();
+            }
+            return names;
+        }
+
+        function fillFromPaste() {
+            const names = parseTnfList(document.getElementById('pasteText').value);
+            if (!names.some(Boolean)) {
+                alert('No numbered players found. Expecting lines like "1. Paul".');
+                return;
+            }
+            clearSlots();
+            names.forEach((name, i) => {
+                if (!name) return;
+                slotParts(slots[i]).input.value = name;
+                commitSlot(slots[i]);
+            });
+            updateCounter();
+            const firstProblem = slots.find(s => s.classList.contains('bad'));
+            if (firstProblem) firstProblem.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+
+        function updateCounter() {
+            const ids = slots.map(s => slotParts(s).hidden.value).filter(Boolean);
+            const count = new Set(ids).size;
+            const counter = document.getElementById('counter');
+            const btn = document.getElementById('generateBtn');
+            counter.textContent = `Selected: ${count} / 10`;
+            counter.className = count === 10 ? 'counter valid' : 'counter';
+            btn.disabled = count !== 10;
+        }
+
+        // Keep the current squad in the fields after generating teams.
+        PRESELECTED_IDS.map(Number).forEach((id, i) => {
+            if (i < slots.length && playerById.has(id)) setSlot(slots[i], id);
+        });
+        if (PRESELECTED_IDS.length) {
+            document.getElementById('pasteBox').open = false;
+        }
+        updateCounter();
 
         async function shareOrDownloadImage(blob, filename, shareTitle, shareText) {
             const file = new File([blob], filename, { type: 'image/jpeg' });
