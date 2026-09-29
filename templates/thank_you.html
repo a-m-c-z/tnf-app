@@ -162,7 +162,8 @@
             <a href="/team_picker" class="{{ 'active' if request.path in ['/team_picker', '/generate_teams', '/confirm_teams'] else '' }}">Team Picker</a>
             <a href="/rate" class="{{ 'active' if request.path.startswith('/rate') or request.path.startswith('/submit_rating') or request.path.startswith('/thank_you') else '' }}">Rate</a>
             <a href="/results" class="{{ 'active' if request.path == '/results' else '' }}">Ratings</a>
-            <a href="/standings" class="{{ 'active' if request.path == '/standings' else '' }}">Standings</a>
+            {% if nav_show_standings %}<a href="/standings" class="{{ 'active' if request.path == '/standings' else '' }}">Standings</a>{% endif %}
+            {% if nav_voting_open %}<a href="/vote" class="{{ 'active' if request.path.startswith('/vote') else '' }}">Awards Vote</a>{% endif %}
             <a href="/admin" class="{{ 'active' if request.path.startswith('/admin') else '' }}">Admin</a>
         </nav>
         <button class="hamburger" onclick="toggleNav(this)" aria-label="Toggle menu"><span></span><span></span><span></span></button>
