@@ -298,10 +298,12 @@ def generate_teams():
         base_defender_rating = defender_rating
         base_attacker_rating = attacker_rating
 
-        # Factor in recent form: a player who has won 3+ of their last 5 games
-        # gets their rating inflated (10%/15%/20% for 3/4/5 wins out of 5),
-        # and a player who has lost 3+ of their last 5 games gets the same
-        # deflation. Based on proportion of results, not a consecutive streak.
+        # Factor in recent form: a player who has won 4 or 5 of their last 5
+        # games gets their rating boosted (10%/15% respectively), and a player
+        # who has lost 4 or 5 of their last 5 gets the same penalty. 3 of 5
+        # has no effect. The change to each rating is capped at
+        # FORM_ADJUSTMENT_CAP points, so it doesn't favour higher-rated
+        # players. Based on proportion of results, not a consecutive streak.
         form_summary = database.get_player_form_summary(player[1], limit=5)
         form_by_name[player[1]] = form_summary
         form_pct = 0.0
@@ -310,8 +312,8 @@ def generate_teams():
         elif form_summary['losses'] >= 3:
             form_pct = -form_multiplier(form_summary['losses'])
         if form_pct:
-            defender_rating *= (1 + form_pct)
-            attacker_rating *= (1 + form_pct)
+            defender_rating = apply_form_adjustment(defender_rating, form_pct)
+            attacker_rating = apply_form_adjustment(attacker_rating, form_pct)
 
         streak_debug.append({
             'name': player[1],
@@ -594,13 +596,32 @@ def admin_reset_potm_votes():
 
 # ── ILP helpers ───────────────────────────────────────────────────────────────
 
+# Maximum number of rating points a form boost/penalty can add or remove.
+FORM_ADJUSTMENT_CAP = 1.0
+
+
 def form_multiplier(count):
-    """Rating adjustment magnitude for winning/losing 3+ of the last 5 games."""
+    """Rating adjustment magnitude for winning/losing 4+ of the last 5 games.
+
+    3 of 5 has no effect, 4 of 5 is 10%, and 5 of 5 is 15%.
+    """
     if count >= 5:
-        return 0.20
-    if count == 4:
         return 0.15
-    return 0.10  # count == 3
+    if count == 4:
+        return 0.10
+    return 0.0
+
+
+def apply_form_adjustment(rating, form_pct):
+    """Apply a signed form percentage to a rating.
+
+    The resulting change is capped at +/- FORM_ADJUSTMENT_CAP rating
+    points, e.g. a 9.0 rating with a -15% adjustment drops by 1.0
+    (not 1.35).
+    """
+    adjustment = rating * form_pct
+    adjustment = max(-FORM_ADJUSTMENT_CAP, min(FORM_ADJUSTMENT_CAP, adjustment))
+    return rating + adjustment
 
 
 def balance_teams_ilp(players):
