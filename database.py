@@ -60,7 +60,7 @@ def init_db():
                   value TEXT)''')
 
     # End-of-season Players' Player of the Year votes. One vote per voter
-    # per season; re-voting replaces the earlier choice.
+    # per season; votes are final (only an admin can clear one).
     c.execute('''CREATE TABLE IF NOT EXISTS potm_votes
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   season INTEGER NOT NULL,
@@ -70,6 +70,14 @@ def init_db():
                   UNIQUE (season, voter_id),
                   FOREIGN KEY (voter_id) REFERENCES players(id),
                   FOREIGN KEY (nominee_id) REFERENCES players(id))''')
+
+    # Alternative names used in the WhatsApp TNF list (e.g. "Paul" for
+    # Paolo, "Ben F" for Fenton). Stored lower-case for lookups.
+    c.execute('''CREATE TABLE IF NOT EXISTS nicknames
+                 (nickname TEXT PRIMARY KEY,
+                  player_id INTEGER NOT NULL,
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                  FOREIGN KEY (player_id) REFERENCES players(id))''')
 
     conn.commit()
     conn.close()
@@ -605,15 +613,42 @@ def save_gameweek_teams_manual(gameweek_key, bibs_names, colours_names):
 # ── Players' Player of the Year voting ──────────────────────────────────────
 
 def save_potm_vote(season, voter_id, nominee_id):
-    """Record a vote, replacing any earlier vote by the same voter."""
+    """Record a vote. Returns False if this voter has already voted.
+
+    Votes can't be changed by the voter; an admin must clear the old
+    vote first (see delete_potm_vote).
+    """
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('''INSERT INTO potm_votes (season, voter_id, nominee_id)
-                 VALUES (?, ?, ?)
-                 ON CONFLICT(season, voter_id) DO UPDATE SET
-                     nominee_id = excluded.nominee_id,
-                     created_at = CURRENT_TIMESTAMP''',
-              (season, voter_id, nominee_id))
+    try:
+        c.execute('''INSERT INTO potm_votes (season, voter_id, nominee_id)
+                     VALUES (?, ?, ?)''',
+                  (season, voter_id, nominee_id))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+
+def get_potm_voter_ids(season):
+    """Return the set of player ids who have voted this season."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT voter_id FROM potm_votes WHERE season = ?",
+              (season,))
+    ids = {r[0] for r in c.fetchall()}
+    conn.close()
+    return ids
+
+
+def delete_potm_vote(season, voter_id):
+    """Clear a single voter's vote so they can vote again."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM potm_votes WHERE season = ? AND voter_id = ?",
+              (season, voter_id))
     conn.commit()
     conn.close()
 
@@ -622,7 +657,8 @@ def get_potm_results(season):
     """Return (tally, votes) for a season.
 
     tally: list of {'name', 'votes'}, most votes first.
-    votes: list of {'voter', 'nominee', 'created_at'}, by voter name.
+    votes: list of {'voter', 'nominee', 'created_at', 'voter_id'},
+           by voter name.
     """
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -633,13 +669,14 @@ def get_potm_results(season):
                  GROUP BY n.id
                  ORDER BY votes DESC, n.name''', (season,))
     tally = [{'name': r[0], 'votes': r[1]} for r in c.fetchall()]
-    c.execute('''SELECT vp.name, n.name, v.created_at
+    c.execute('''SELECT vp.name, n.name, v.created_at, v.voter_id
                  FROM potm_votes v
                  JOIN players vp ON v.voter_id = vp.id
                  JOIN players n ON v.nominee_id = n.id
                  WHERE v.season = ?
                  ORDER BY vp.name''', (season,))
-    votes = [{'voter': r[0], 'nominee': r[1], 'created_at': r[2]}
+    votes = [{'voter': r[0], 'nominee': r[1], 'created_at': r[2],
+              'voter_id': r[3]}
              for r in c.fetchall()]
     conn.close()
     return tally, votes
@@ -650,5 +687,67 @@ def reset_potm_votes(season):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("DELETE FROM potm_votes WHERE season = ?", (season,))
+    conn.commit()
+    conn.close()
+
+
+# ── Nicknames (for pasted TNF lists) ────────────────────────────────────────
+
+def normalise_nickname(nickname):
+    """Lower-case and collapse whitespace so lookups are forgiving."""
+    return ' '.join((nickname or '').split()).lower()
+
+
+def get_nicknames():
+    """Return [{'nickname', 'player_id', 'player'}] ordered by nickname."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''SELECT n.nickname, n.player_id, p.name
+                 FROM nicknames n
+                 JOIN players p ON n.player_id = p.id
+                 ORDER BY n.nickname''')
+    rows = [{'nickname': r[0], 'player_id': r[1], 'player': r[2]}
+            for r in c.fetchall()]
+    conn.close()
+    return rows
+
+
+def save_nickname(nickname, player_id):
+    """Create or repoint a nickname. Returns the normalised nickname."""
+    key = normalise_nickname(nickname)
+    if not key:
+        return None
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''INSERT INTO nicknames (nickname, player_id) VALUES (?, ?)
+                 ON CONFLICT(nickname) DO UPDATE SET
+                     player_id = excluded.player_id,
+                     created_at = CURRENT_TIMESTAMP''',
+              (key, player_id))
+    conn.commit()
+    conn.close()
+    return key
+
+
+def delete_nickname(nickname):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM nicknames WHERE nickname = ?",
+              (normalise_nickname(nickname),))
+    conn.commit()
+    conn.close()
+
+
+def seed_nicknames(pairs):
+    """Add default nicknames (nickname, player name) if not already set."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    for nickname, player_name in pairs:
+        c.execute("SELECT id FROM players WHERE name = ?", (player_name,))
+        row = c.fetchone()
+        if row:
+            c.execute('''INSERT OR IGNORE INTO nicknames (nickname, player_id)
+                         VALUES (?, ?)''',
+                      (normalise_nickname(nickname), row[0]))
     conn.commit()
     conn.close()

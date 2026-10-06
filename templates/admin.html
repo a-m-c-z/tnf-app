@@ -438,6 +438,54 @@
         }
         .potm-details li { padding: 2px 0; }
         .potm-details strong { color: var(--text); font-weight: 600; }
+        .potm-details li { display: flex; align-items: center; gap: 8px; break-inside: avoid; }
+        .inline-form { display: inline; }
+        .btn-mini {
+            background: transparent;
+            color: var(--colours);
+            border: 1px solid transparent;
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-mini:hover { border-color: var(--colours); }
+
+        /* ── Nicknames ── */
+        .nick-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+        }
+        .nick-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 16px; }
+        .nick-table th, .nick-table td {
+            text-align: left;
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        .nick-table th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; }
+        .nick-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+        .nick-form label { font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 4px; }
+        .nick-form input, .nick-form select {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 9px 12px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+        .nick-form button {
+            padding: 9px 20px;
+            background: var(--green-l);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -512,7 +560,7 @@
     </form>
 
     <!-- ── Players' Player of the Year ───────────────────── -->
-    <div class="section-title">Players' Player of the Year {{ potm_season }}</div>
+    <div class="section-title" id="potm">Players' Player of the Year {{ potm_season }}</div>
 
     <div class="potm-card">
         <div class="potm-status">
@@ -538,7 +586,14 @@
             <summary>Show individual votes</summary>
             <ul>
                 {% for v in potm_votes %}
-                <li><strong>{{ v.voter }}</strong> → {{ v.nominee }}</li>
+                <li>
+                    <strong>{{ v.voter }}</strong> → {{ v.nominee }}
+                    <form method="POST" action="/admin/delete_potm_vote" class="inline-form"
+                          onsubmit="return confirm('Clear {{ v.voter|e }}\'s vote? They will be able to vote again.')">
+                        <input type="hidden" name="voter_id" value="{{ v.voter_id }}">
+                        <button type="submit" class="btn-mini" title="Clear this vote">✕ Clear</button>
+                    </form>
+                </li>
                 {% endfor %}
             </ul>
         </details>
@@ -550,6 +605,48 @@
         {% else %}
         <div class="no-data" style="padding:16px;">No votes yet.</div>
         {% endif %}
+    </div>
+
+    <!-- ── Nicknames ───────────────────────────────────────── -->
+    <div class="section-title" id="nicknames">Nicknames</div>
+
+    <div class="nick-card">
+        <p class="retro-hint" style="margin:0 0 14px;">Names used in the pasted TNF list that don't match the player list (e.g. "Paul" → Paolo). Matching ignores capitals and extra spaces.</p>
+        {% if nicknames %}
+        <table class="nick-table">
+            <tr><th>In the TNF list</th><th>Player</th><th></th></tr>
+            {% for n in nicknames %}
+            <tr>
+                <td>{{ n.nickname }}</td>
+                <td>{{ n.player }}</td>
+                <td style="text-align:right;">
+                    <form method="POST" action="/admin/delete_nickname" class="inline-form">
+                        <input type="hidden" name="nickname" value="{{ n.nickname }}">
+                        <button type="submit" class="btn-mini">✕ Remove</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <div class="no-data" style="padding:16px;">No nicknames yet.</div>
+        {% endif %}
+        <form method="POST" action="/admin/add_nickname" class="nick-form">
+            <div>
+                <label>Nickname</label>
+                <input type="text" name="nickname" maxlength="40" placeholder="e.g. Paul" required>
+            </div>
+            <div>
+                <label>Player</label>
+                <select name="player_id" required>
+                    <option value="">— Select —</option>
+                    {% for ap in all_players %}
+                    <option value="{{ ap[0] }}">{{ ap[1] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit">Add Nickname</button>
+        </form>
     </div>
 
     <!-- ── Add Retrospective Gameweek ────────────────────── -->
@@ -587,7 +684,7 @@
         </form>
     </div>
 
-    <!-- ── Gameweeks ─────────────────────────────────────── -->
+    <!-- ── Gameweeks ───────────────────────────────────────── -->
     <div class="section-title">Gameweeks</div>
 
     {% if gameweeks %}
@@ -681,7 +778,7 @@
     <div class="no-data">No gameweeks recorded yet for {{ year }}. Confirm some teams from the Team Picker first.</div>
     {% endif %}
 
-    <!-- ── Data Management ───────────────────────────────── -->
+    <!-- ── Data Management ─────────────────────────────────── -->
     <div class="section-title">Data Management</div>
 
     {% set restore_error = request.args.get('restore_error') %}

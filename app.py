@@ -70,8 +70,13 @@ PLAYERS = [
     'Dave', 'Evan', 'Ethan', 'Guest 1', 'Guest 2', 'Guest 3', 'Guest 4'
 ]
 
+# Default nicknames used in the WhatsApp TNF list. More can be added from
+# the admin page or the team picker's "who is this?" prompt.
+DEFAULT_NICKNAMES = [('Paul', 'Paolo'), ('Ben F', 'Fenton')]
+
 database.init_db()
 database.add_players_from_list(PLAYERS)
+database.seed_nicknames(DEFAULT_NICKNAMES)
 
 
 # ── Gameweek helpers ──────────────────────────────────────────────────────────
@@ -233,6 +238,16 @@ def clear_cookies():
 
 # ── Team Picker ───────────────────────────────────────────────────────────────
 
+def squad_picker_data():
+    """Players and nickname lookup used by the squad picker's JS."""
+    return {
+        'picker_players': [{'id': pid, 'name': name}
+                           for pid, name in database.get_players()],
+        'picker_nicknames': {n['nickname']: n['player_id']
+                             for n in database.get_nicknames()},
+    }
+
+
 @app.route('/team_picker')
 def team_picker():
     players = database.get_players()
@@ -260,19 +275,31 @@ def team_picker():
     return render_template('team_picker.html', players=players,
                            teams=teams, error=None,
                            gameweek_key=gw_key, existing=existing,
-                           player_forms=player_forms)
+                           player_forms=player_forms,
+                           **squad_picker_data())
 
 
 @app.route('/generate_teams', methods=['POST'])
 def generate_teams():
-    selected_player_ids = request.form.getlist('players')
+    selected_player_ids = [
+        pid for pid in request.form.getlist('players') if pid.strip()]
+    valid_ids = {str(p[0]) for p in database.get_players()}
+    error = None
     if len(selected_player_ids) != 10:
+        error = ("Please select exactly 10 players "
+                 f"(you selected {len(selected_player_ids)})")
+    elif len(set(selected_player_ids)) != 10:
+        error = "Each player can only be listed once."
+    elif not set(selected_player_ids) <= valid_ids:
+        error = "One or more players weren't recognised."
+    if error:
         players = database.get_players()
-        gw_key  = get_current_gameweek_key()
+        gw_key = get_current_gameweek_key()
         return render_template('team_picker.html',
                                players=players, teams=None,
-                               error=f"Please select exactly 10 players (you selected {len(selected_player_ids)})",
-                               gameweek_key=gw_key, existing=None)
+                               error=error,
+                               gameweek_key=gw_key, existing=None,
+                               **squad_picker_data())
 
     averages = database.get_average_ratings_filtered(filter_outliers=True)
     player_data = []
@@ -345,7 +372,24 @@ def generate_teams():
                            players=players, teams=teams, error=None,
                            gameweek_key=gw_key, existing=None,
                            player_forms=form_by_name,
-                           streak_debug=streak_debug)
+                           streak_debug=streak_debug,
+                           **squad_picker_data())
+
+
+@app.route('/nicknames', methods=['POST'])
+def add_nickname():
+    """Save a nickname from the team picker's "who is this?" prompt."""
+    nickname = (request.form.get('nickname') or '').strip()
+    try:
+        player_id = int(request.form.get('player_id', ''))
+    except ValueError:
+        player_id = None
+    if not nickname or len(nickname) > 40:
+        return jsonify({'error': 'Invalid nickname.'}), 400
+    if not player_id or not database.get_player_by_id(player_id):
+        return jsonify({'error': 'Unknown player.'}), 400
+    key = database.save_nickname(nickname, player_id)
+    return jsonify({'nickname': key, 'player_id': player_id})
 
 
 @app.route('/confirm_teams', methods=['POST'])
@@ -392,6 +436,10 @@ def get_potm_eligibility(season):
     return players, nominees
 
 
+POTM_COOKIE = 'potm_voter_{season}'
+ALREADY_VOTED_MSG = 'You have already voted. Contact Alex to undo your vote.'
+
+
 @app.route('/vote', methods=['GET', 'POST'])
 def vote():
     season = datetime.now().year
@@ -402,8 +450,21 @@ def vote():
     voters, nominees = get_potm_eligibility(season)
     voter_ids = {p[0] for p in voters}
     nominee_ids = {p[0] for p in nominees}
-    error = None
+    voted_ids = database.get_potm_voter_ids(season)
+    cookie_name = POTM_COOKIE.format(season=season)
 
+    # This device has already voted, and the vote hasn't been cleared by
+    # an admin, so don't show the form again.
+    try:
+        cookie_voter = int(request.cookies.get(cookie_name, ''))
+    except ValueError:
+        cookie_voter = None
+    if cookie_voter in voted_ids:
+        return render_template('vote.html', voting_open=True,
+                               season=season, already_voted=True,
+                               message=ALREADY_VOTED_MSG)
+
+    error = None
     if request.method == 'POST':
         try:
             voter_id = int(request.form.get('voter_id', ''))
@@ -413,18 +474,28 @@ def vote():
 
         if voter_id not in voter_ids:
             error = 'Please select who you are.'
+        elif voter_id in voted_ids:
+            error = ALREADY_VOTED_MSG
         elif nominee_id not in nominee_ids:
             error = 'Please select an eligible player.'
         elif voter_id == nominee_id:
             error = "Nice try — you can't vote for yourself."
+        elif not database.save_potm_vote(season, voter_id, nominee_id):
+            error = ALREADY_VOTED_MSG
         else:
-            database.save_potm_vote(season, voter_id, nominee_id)
-            return redirect(url_for('vote', done=1))
+            resp = make_response(redirect(url_for('vote')))
+            resp.set_cookie(cookie_name, str(voter_id),
+                            max_age=60 * 60 * 24 * 365)
+            return resp
 
-    return render_template('vote.html', voting_open=True, season=season,
-                           voters=voters, nominees=nominees,
-                           min_games=POTM_MIN_GAMES, error=error,
-                           done=request.args.get('done'))
+    response = make_response(render_template(
+        'vote.html', voting_open=True, season=season,
+        voters=voters, nominees=nominees, voted_ids=voted_ids,
+        min_games=POTM_MIN_GAMES, error=error))
+    if cookie_voter is not None:
+        # Their vote was cleared by an admin, so let them vote again.
+        response.set_cookie(cookie_name, '', max_age=0)
+    return response
 
 
 # ── Admin ─────────────────────────────────────────────────────────────────────
@@ -470,7 +541,8 @@ def admin():
                            potm_voting_open=get_potm_voting_open(),
                            potm_tally=potm_tally,
                            potm_votes=potm_votes,
-                           potm_season=potm_season)
+                           potm_season=potm_season,
+                           nicknames=database.get_nicknames())
 
 
 @app.route('/admin/update_settings', methods=['POST'])
@@ -590,6 +662,38 @@ def admin_reset_potm_votes():
     """Delete all Players' Player of the Year votes for this season."""
     database.reset_potm_votes(datetime.now().year)
     return redirect(url_for('admin'))
+
+
+@app.route('/admin/delete_potm_vote', methods=['POST'])
+@admin_required
+def admin_delete_potm_vote():
+    """Clear one voter's vote so they can vote again."""
+    try:
+        voter_id = int(request.form.get('voter_id', ''))
+    except ValueError:
+        return redirect(url_for('admin'))
+    database.delete_potm_vote(datetime.now().year, voter_id)
+    return redirect(url_for('admin') + '#potm')
+
+
+@app.route('/admin/add_nickname', methods=['POST'])
+@admin_required
+def admin_add_nickname():
+    nickname = (request.form.get('nickname') or '').strip()
+    try:
+        player_id = int(request.form.get('player_id', ''))
+    except ValueError:
+        player_id = None
+    if nickname and player_id and database.get_player_by_id(player_id):
+        database.save_nickname(nickname, player_id)
+    return redirect(url_for('admin') + '#nicknames')
+
+
+@app.route('/admin/delete_nickname', methods=['POST'])
+@admin_required
+def admin_delete_nickname():
+    database.delete_nickname(request.form.get('nickname', ''))
+    return redirect(url_for('admin') + '#nicknames')
 
 
 # ── ILP helpers ───────────────────────────────────────────────────────────────
